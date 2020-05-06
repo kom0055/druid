@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,10 +25,19 @@ import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGMacAddrExpr;
 import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGPointExpr;
 import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGPolygonExpr;
 import com.alibaba.druid.sql.dialect.postgresql.ast.expr.PGTypeCastExpr;
-import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.*;
+import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGConnectToStatement;
+import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGDeleteStatement;
+import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGFunctionTableSource;
+import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGInsertStatement;
+import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectQueryBlock.FetchClause;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectQueryBlock.ForClause;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectQueryBlock.WindowClause;
+import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectStatement;
+import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGShowStatement;
+import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGStartTransactionStatement;
+import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGUpdateStatement;
+import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGValuesQuery;
 import com.alibaba.druid.sql.visitor.SQLASTVisitorAdapter;
 
 public class PGASTVisitorAdapter extends SQLASTVisitorAdapter implements PGASTVisitor {
@@ -254,6 +263,16 @@ public class PGASTVisitorAdapter extends SQLASTVisitorAdapter implements PGASTVi
 
     @Override
     public boolean visit(PGStartTransactionStatement x) {
+        return true;
+    }
+
+    @Override
+    public void endVisit(PGConnectToStatement x) {
+
+    }
+
+    @Override
+    public boolean visit(PGConnectToStatement x) {
         return true;
     }
 

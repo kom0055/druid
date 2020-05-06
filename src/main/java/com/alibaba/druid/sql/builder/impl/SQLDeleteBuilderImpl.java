@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlDeleteStatement;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleDeleteStatement;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGDeleteStatement;
 import com.alibaba.druid.util.JdbcConstants;
+import com.alibaba.druid.util.JdbcUtils;
 
 public class SQLDeleteBuilderImpl implements SQLDeleteBuilder {
 
@@ -123,21 +124,22 @@ public class SQLDeleteBuilderImpl implements SQLDeleteBuilder {
     }
 
     public SQLDeleteStatement createSQLDeleteStatement() {
-        if (JdbcConstants.ORACLE.equals(dbType)) {
+        if (JdbcUtils.isOracleDbType(dbType)) {
             return new OracleDeleteStatement();    
         }
-        
-        if (JdbcConstants.MYSQL.equals(dbType)) {
-            return new MySqlDeleteStatement();    
+
+        if (JdbcUtils.isMysqlDbType(dbType)) {
+            return new MySqlDeleteStatement();
         }
-        
-        if (JdbcConstants.POSTGRESQL.equals(dbType)) {
-            return new PGDeleteStatement();    
+
+        if (JdbcUtils.isPgsqlDbType(dbType)) {
+            return new PGDeleteStatement();
         }
         
         return new SQLDeleteStatement();
     }
 
+    @Override
     public String toString() {
         return SQLUtils.toSQLString(stmt, dbType);
     }

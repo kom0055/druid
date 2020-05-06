@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,19 @@
 package com.alibaba.druid.sql.dialect.db2.parser;
 
 import com.alibaba.druid.sql.ast.SQLName;
-import com.alibaba.druid.sql.ast.SQLPartitionBy;
 import com.alibaba.druid.sql.ast.SQLPartitionByHash;
-import com.alibaba.druid.sql.ast.statement.*;
+import com.alibaba.druid.sql.ast.statement.SQLColumnDefinition;
+import com.alibaba.druid.sql.ast.statement.SQLConstraint;
+import com.alibaba.druid.sql.ast.statement.SQLCreateTableStatement;
+import com.alibaba.druid.sql.ast.statement.SQLExprTableSource;
+import com.alibaba.druid.sql.ast.statement.SQLSelect;
+import com.alibaba.druid.sql.ast.statement.SQLTableElement;
 import com.alibaba.druid.sql.dialect.db2.ast.stmt.DB2CreateTableStatement;
 import com.alibaba.druid.sql.parser.ParserException;
 import com.alibaba.druid.sql.parser.SQLCreateTableParser;
 import com.alibaba.druid.sql.parser.SQLExprParser;
 import com.alibaba.druid.sql.parser.Token;
 import com.alibaba.druid.util.FnvHash;
-import com.alibaba.druid.util.JdbcConstants;
 
 public class DB2CreateTableParser extends SQLCreateTableParser {
     public DB2CreateTableParser(String sql) {
@@ -75,11 +78,7 @@ public class DB2CreateTableParser extends SQLCreateTableParser {
 
             for (; ; ) {
                 Token token = lexer.token();
-                if (token == Token.IDENTIFIER
-                        && lexer.stringVal().equalsIgnoreCase("SUPPLEMENTAL")
-                        && JdbcConstants.ORACLE.equals(dbType)) {
-                    this.parseCreateTableSupplementalLogingProps(createTable);
-                } else if (token == Token.IDENTIFIER //
+                if (token == Token.IDENTIFIER //
                         || token == Token.LITERAL_ALIAS) {
                     SQLColumnDefinition column = this.exprParser.parseColumn();
                     createTable.getTableElementList().add(column);
@@ -178,6 +177,12 @@ public class DB2CreateTableParser extends SQLCreateTableParser {
                 if (lexer.identifierEquals(FnvHash.Constants.YES)) {
                     lexer.nextToken();
                 }
+                continue;
+            } else if (lexer.token() == Token.INDEX) {
+                lexer.nextToken();
+                accept(Token.IN);
+                SQLName indexIn = this.exprParser.name();
+                createTable.setIndexIn(indexIn);
                 continue;
             }
             break;

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ public class DB2CreateTableStatement extends SQLCreateTableStatement implements 
 
     protected SQLName database;
     protected SQLName validproc;
+    protected SQLName indexIn;
 
     public boolean isDataCaptureNone() {
         return dataCaptureNone;
@@ -59,11 +60,22 @@ public class DB2CreateTableStatement extends SQLCreateTableStatement implements 
         return validproc;
     }
 
-    public void setValidproc(SQLName validproc) {
+    public void setValidproc(SQLName x) {
         if (validproc != null) {
-            validproc.setParent(this);
+            x.setParent(this);
         }
-        this.validproc = validproc;
+        this.validproc = x;
+    }
+
+    public SQLName getIndexIn() {
+        return indexIn;
+    }
+
+    public void setIndexIn(SQLName x) {
+        if (validproc != null) {
+            x.setParent(this);
+        }
+        this.indexIn = x;
     }
 
     @Override
@@ -85,6 +97,7 @@ public class DB2CreateTableStatement extends SQLCreateTableStatement implements 
             this.acceptChild(visitor, select);
             this.acceptChild(visitor, database);
             this.acceptChild(visitor, validproc);
+            this.acceptChild(visitor, indexIn);
         }
         visitor.endVisit(this);
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
  */
 package com.alibaba.druid.sql.ast;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.expr.SQLIntegerExpr;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 import com.alibaba.druid.util.FnvHash;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class SQLDataTypeImpl extends SQLObjectImpl implements SQLDataType {
 
@@ -46,6 +46,11 @@ public class SQLDataTypeImpl extends SQLObjectImpl implements SQLDataType {
     public SQLDataTypeImpl(String name, int precision) {
         this(name);
         addArgument(new SQLIntegerExpr(precision));
+    }
+
+    public SQLDataTypeImpl(String name, SQLExpr arg) {
+        this(name);
+        addArgument(arg);
     }
 
     public SQLDataTypeImpl(String name, int precision, int scale) {

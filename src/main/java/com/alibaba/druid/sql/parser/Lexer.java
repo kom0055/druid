@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,21 @@ import static com.alibaba.druid.sql.parser.LayoutCharacters.EOI;
 import static com.alibaba.druid.sql.parser.SQLParserFeature.KeepComments;
 import static com.alibaba.druid.sql.parser.SQLParserFeature.OptimizedForParameterized;
 import static com.alibaba.druid.sql.parser.SQLParserFeature.SkipComments;
-import static com.alibaba.druid.sql.parser.Token.*;
+import static com.alibaba.druid.sql.parser.Token.COLONCOLON;
+import static com.alibaba.druid.sql.parser.Token.COLONEQ;
+import static com.alibaba.druid.sql.parser.Token.COMMA;
+import static com.alibaba.druid.sql.parser.Token.DOT;
+import static com.alibaba.druid.sql.parser.Token.EOF;
+import static com.alibaba.druid.sql.parser.Token.EQ;
+import static com.alibaba.druid.sql.parser.Token.ERROR;
+import static com.alibaba.druid.sql.parser.Token.LBRACE;
+import static com.alibaba.druid.sql.parser.Token.LBRACKET;
+import static com.alibaba.druid.sql.parser.Token.LITERAL_ALIAS;
+import static com.alibaba.druid.sql.parser.Token.LITERAL_CHARS;
+import static com.alibaba.druid.sql.parser.Token.LPAREN;
+import static com.alibaba.druid.sql.parser.Token.RBRACE;
+import static com.alibaba.druid.sql.parser.Token.RBRACKET;
+import static com.alibaba.druid.sql.parser.Token.RPAREN;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -43,7 +57,7 @@ public class Lexer {
     protected static SymbolTable symbols_l2 = new SymbolTable(512);
 
     protected int          features       = 0; //SQLParserFeature.of(SQLParserFeature.EnableSQLBinaryOpExprGroup);
-    protected final String text;
+    public    final String text;
     protected int          pos;
     protected int          mark;
 
@@ -211,6 +225,11 @@ public class Lexer {
         this.reset(this.savePoint);
     }
 
+    public void reset(int pos) {
+        this.pos = pos;
+        this.ch = charAt(pos);
+    }
+
     public Lexer(String input, boolean skipComment){
         this.skipComment = skipComment;
 
@@ -265,7 +284,7 @@ public class Lexer {
         }
 
         this.posLine = line;
-        this.posColumn = posColumn;
+        this.posColumn = column;
 
         StringBuilder buf = new StringBuilder();
         buf
@@ -323,6 +342,46 @@ public class Lexer {
         }
 
         nextToken();
+    }
+
+    public final void nextTokenCommaValue() {
+        if (ch == ' ') {
+            scanChar();
+        }
+
+        if (ch == ',' || ch == '，') {
+            scanChar();
+            token = COMMA;
+            return;
+        }
+
+        if (ch == ')' || ch == '）') {
+            scanChar();
+            token = RPAREN;
+            return;
+        }
+
+        if (ch == '.') {
+            scanChar();
+            token = DOT;
+            return;
+        }
+
+        if (ch == 'a' || ch == 'A') {
+            char ch_next = charAt(pos + 1);
+            if (ch_next == 's' || ch_next == 'S') {
+                char ch_next_2 = charAt(pos + 2);
+                if (ch_next_2 == ' ') {
+                    pos += 2;
+                    ch = ' ';
+                    token = Token.AS;
+                    stringVal = "AS";
+                    return;
+                }
+            }
+        }
+
+        nextTokenValue();
     }
 
     public final void nextTokenEq() {
@@ -384,7 +443,25 @@ public class Lexer {
             return;
         }
 
-        if (ch >= '0' && ch <= '9') {
+        if (ch == '"') {
+            bufPos = 0;
+            scanString2_d();
+            return;
+        }
+
+        if (ch == '0') {
+            bufPos = 0;
+            if (charAt(pos + 1) == 'x') {
+                scanChar();
+                scanChar();
+                scanHexaDecimal();
+            } else {
+                scanNumber();
+            }
+            return;
+        }
+
+        if (ch > '0' && ch <= '9') {
             bufPos = 0;
             scanNumber();
             return;
@@ -411,6 +488,7 @@ public class Lexer {
             }
 
             if (c1 == '\'') {
+                bufPos = 0;
                 ++pos;
                 ch = '\'';
                 scanString();
@@ -1097,8 +1175,18 @@ public class Lexer {
                     case '\\':
                         putChar('\\');
                         break;
+                    case '_':
+                        if(JdbcConstants.MYSQL.equals(dbType)) {
+                            putChar('\\');
+                        }
+                        putChar('_');
+                        break;
                     case 'Z':
                         putChar((char) 0x1A); // ctrl + Z
+                        break;
+                    case '%':
+                        putChar('\\');
+                        putChar(ch);
                         break;
                     default:
                         putChar(ch);
@@ -1141,8 +1229,8 @@ public class Lexer {
             stringVal = new String(buf, 0, bufPos);
         }
     }
-    
-    protected final void scanAlias() {
+
+    protected final void scanString2_d() {
         {
             boolean hasSpecial = false;
             int startIndex = pos + 1;
@@ -1154,21 +1242,6 @@ public class Lexer {
                     continue;
                 }
                 if (ch == '"') {
-                    if (i + 1 < text.length()) {
-                        char ch_next = charAt(i + 1);
-                        if (ch_next == '"' || ch_next == '\'') {
-                            hasSpecial = true;
-                            i++;
-                            continue;
-                        }
-                    }
-                    if (i > 0) {
-                        char ch_last = charAt(i - 1);
-                        if (ch_last == '\'') {
-                            hasSpecial = true;
-                            continue;
-                        }
-                    }
                     endIndex = i;
                     break;
                 }
@@ -1178,7 +1251,12 @@ public class Lexer {
                 throw new ParserException("unclosed str. " + info());
             }
 
-            String stringVal = subString(pos, endIndex + 1 - pos);
+            String stringVal;
+            if (token == Token.AS) {
+                stringVal = subString(pos, endIndex + 1 - pos);
+            } else {
+                stringVal = subString(startIndex, endIndex - startIndex);
+            }
             // hasSpecial = stringVal.indexOf('\\') != -1;
 
             if (!hasSpecial) {
@@ -1188,16 +1266,14 @@ public class Lexer {
                 if (ch != '\'') {
                     this.pos = pos;
                     this.ch = ch;
-                    token = LITERAL_ALIAS;
+                    token = LITERAL_CHARS;
                     return;
                 }
             }
         }
 
         mark = pos;
-        initBuff(bufPos);
-        //putChar(ch);
-
+        boolean hasSpecial = false;
         for (;;) {
             if (isEOF()) {
                 lexError("unclosed.str.lit");
@@ -1208,6 +1284,12 @@ public class Lexer {
 
             if (ch == '\\') {
                 scanChar();
+                if (!hasSpecial) {
+                    initBuff(bufPos);
+                    arraycopy(mark + 1, buf, 0, bufPos);
+                    hasSpecial = true;
+                }
+
 
                 switch (ch) {
                     case '0':
@@ -1237,6 +1319,158 @@ public class Lexer {
                     case 'Z':
                         putChar((char) 0x1A); // ctrl + Z
                         break;
+                    case '%':
+                        if(JdbcConstants.MYSQL.equals(dbType)) {
+                            putChar('\\');
+                        }
+                        putChar('%');
+                        break;
+                    case '_':
+                        if(JdbcConstants.MYSQL.equals(dbType)) {
+                            putChar('\\');
+                        }
+                        putChar('_');
+                        break;
+                    default:
+                        putChar(ch);
+                        break;
+                }
+
+                continue;
+            }
+            if (ch == '"') {
+                scanChar();
+                if (ch != '"') {
+                    token = LITERAL_CHARS;
+                    break;
+                } else {
+                    if (!hasSpecial) {
+                        initBuff(bufPos);
+                        arraycopy(mark + 1, buf, 0, bufPos);
+                        hasSpecial = true;
+                    }
+                    putChar('"');
+                    continue;
+                }
+            }
+
+            if (!hasSpecial) {
+                bufPos++;
+                continue;
+            }
+
+            if (bufPos == buf.length) {
+                putChar(ch);
+            } else {
+                buf[bufPos++] = ch;
+            }
+        }
+
+        if (!hasSpecial) {
+            stringVal = subString(mark + 1, bufPos);
+        } else {
+            stringVal = new String(buf, 0, bufPos);
+        }
+    }
+
+    protected final void scanAlias() {
+        final char quote = ch;
+        {
+            boolean hasSpecial = false;
+            int startIndex = pos + 1;
+            int endIndex = -1; // text.indexOf('\'', startIndex);
+            for (int i = startIndex; i < text.length(); ++i) {
+                final char ch = text.charAt(i);
+                if (ch == '\\') {
+                    hasSpecial = true;
+                    continue;
+                }
+                if (ch == quote) {
+                    if (i + 1 < text.length()) {
+                        char ch_next = charAt(i + 1);
+                        if (ch_next == quote) {
+                            hasSpecial = true;
+                            i++;
+                            continue;
+                        }
+                    }
+
+                    endIndex = i;
+                    break;
+                }
+            }
+
+            if (endIndex == -1) {
+                throw new ParserException("unclosed str. " + info());
+            }
+
+            String stringVal = subString(pos, endIndex + 1 - pos);
+            // hasSpecial = stringVal.indexOf('\\') != -1;
+
+            if (!hasSpecial) {
+                this.stringVal = stringVal;
+                int pos = endIndex + 1;
+                char ch = charAt(pos);
+                if (ch != '\'') {
+                    this.pos = pos;
+                    this.ch = ch;
+                    token = LITERAL_ALIAS;
+                    return;
+                }
+            }
+        }
+
+        mark = pos;
+        initBuff(bufPos);
+        //putChar(ch);
+
+        putChar(ch);
+        for (;;) {
+            if (isEOF()) {
+                lexError("unclosed.str.lit");
+                return;
+            }
+
+            ch = charAt(++pos);
+
+            if (ch == '\\') {
+                scanChar();
+
+                switch (ch) {
+                    case '0':
+                        putChar('\0');
+                        break;
+                    case '\'':
+                        if (ch == quote) {
+                            putChar('\\');
+                        }
+                        putChar('\'');
+                        break;
+                    case '"':
+                        if (ch == quote) {
+                            putChar('\\');
+                        }
+                        putChar('"');
+                        break;
+                    case 'b':
+                        putChar('\b');
+                        break;
+                    case 'n':
+                        putChar('\n');
+                        break;
+                    case 'r':
+                        putChar('\r');
+                        break;
+                    case 't':
+                        putChar('\t');
+                        break;
+                    case '\\':
+                        putChar('\\');
+                        putChar('\\');
+                        break;
+                    case 'Z':
+                        putChar((char) 0x1A); // ctrl + Z
+                        break;
                     default:
                         putChar(ch);
                         break;
@@ -1245,22 +1479,19 @@ public class Lexer {
                 continue;
             }
 
-            if (ch == '\'') {
+            if (ch == quote) {
                 char ch_next = charAt(pos + 1);
-                if (ch_next == '"') {
-                    scanChar();
-                    continue;
-                }
-            } else if (ch == '\"') {
-                char ch_next = charAt(pos + 1);
-                if (ch_next == '"' || ch_next == '\'') {
+
+                if (ch_next == quote) {
+                    putChar('\\');
+                    putChar(ch);
                     scanChar();
                     continue;
                 }
 
-                //putChar(ch);
+                putChar(ch);
                 scanChar();
-                token = LITERAL_CHARS;
+                token = LITERAL_ALIAS;
                 break;
             }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ public class OracleSelectTest37 extends OracleTest {
         List<SQLStatement> statementList = parser.parseStatementList();
         SQLStatement stmt = statementList.get(0);
         
-        Assert.assertEquals("SELECT resource_value, COUNT(resource_value) AS nums, http_method"
+        Assert.assertEquals("SELECT resource_value, count(resource_value) AS nums, http_method"
                 + "\nFROM ("
                 + "\n\tSELECT *"
                 + "\n\tFROM audit_url_log"
@@ -49,7 +49,7 @@ public class OracleSelectTest37 extends OracleTest {
                 + "\n\t\tAND to_char(begin_time, 'yyyy-MM-dd') <= ?"
                 + "\n)"
                 + "\nGROUP BY resource_value, http_method"
-                + "\nHAVING COUNT(resource_value) >= ?", SQLUtils.toOracleString(stmt));
+                + "\nHAVING count(resource_value) >= ?", SQLUtils.toOracleString(stmt));
 
         Assert.assertEquals("select resource_value, count(resource_value) as nums, http_method"
                 + "\nfrom ("

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,36 @@
 package com.alibaba.druid.sql;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import com.alibaba.druid.DruidRuntimeException;
-import com.alibaba.druid.sql.ast.*;
-import com.alibaba.druid.sql.ast.expr.*;
-import com.alibaba.druid.sql.ast.statement.*;
+import com.alibaba.druid.sql.ast.SQLExpr;
+import com.alibaba.druid.sql.ast.SQLLimit;
+import com.alibaba.druid.sql.ast.SQLObject;
+import com.alibaba.druid.sql.ast.SQLOrderBy;
+import com.alibaba.druid.sql.ast.SQLOver;
+import com.alibaba.druid.sql.ast.SQLSetQuantifier;
+import com.alibaba.druid.sql.ast.SQLStatement;
+import com.alibaba.druid.sql.ast.expr.SQLAggregateExpr;
+import com.alibaba.druid.sql.ast.expr.SQLAggregateOption;
+import com.alibaba.druid.sql.ast.expr.SQLAllColumnExpr;
+import com.alibaba.druid.sql.ast.expr.SQLBinaryOpExpr;
+import com.alibaba.druid.sql.ast.expr.SQLBinaryOperator;
+import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
+import com.alibaba.druid.sql.ast.expr.SQLIntegerExpr;
+import com.alibaba.druid.sql.ast.expr.SQLLiteralExpr;
+import com.alibaba.druid.sql.ast.expr.SQLNumberExpr;
+import com.alibaba.druid.sql.ast.expr.SQLNumericLiteralExpr;
+import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
+import com.alibaba.druid.sql.ast.expr.SQLVariantRefExpr;
+import com.alibaba.druid.sql.ast.statement.SQLExprTableSource;
+import com.alibaba.druid.sql.ast.statement.SQLSelect;
+import com.alibaba.druid.sql.ast.statement.SQLSelectItem;
+import com.alibaba.druid.sql.ast.statement.SQLSelectQuery;
+import com.alibaba.druid.sql.ast.statement.SQLSelectQueryBlock;
+import com.alibaba.druid.sql.ast.statement.SQLSelectStatement;
+import com.alibaba.druid.sql.ast.statement.SQLSubqueryTableSource;
+import com.alibaba.druid.sql.ast.statement.SQLTableSource;
+import com.alibaba.druid.sql.ast.statement.SQLUnionQuery;
 import com.alibaba.druid.sql.dialect.db2.ast.stmt.DB2SelectQueryBlock;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.mysql.visitor.MySqlASTVisitorAdapter;
@@ -31,7 +55,6 @@ import com.alibaba.druid.sql.dialect.oracle.visitor.OracleASTVisitorAdapter;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerTop;
-import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 import com.alibaba.druid.util.JdbcConstants;
 import com.alibaba.druid.util.JdbcUtils;
 
@@ -79,36 +102,34 @@ public class PagerUtils {
     }
 
     public static boolean limit(SQLSelect select, String dbType, int offset, int count, boolean check) {
-        SQLSelectQuery query = select.getQuery();
-
-        if (JdbcConstants.ORACLE.equals(dbType)) {
+        if (JdbcUtils.isOracleDbType(dbType)) {
             return limitOracle(select, dbType, offset, count, check);
+        }
+
+        if (JdbcUtils.isSqlserverDbType(dbType)) {
+            return limitSQLServer(select, dbType, offset, count, check);
         }
 
         if (JdbcConstants.DB2.equals(dbType)) {
             return limitDB2(select, dbType, offset, count, check);
         }
 
-        if (JdbcConstants.SQL_SERVER.equals(dbType) || JdbcUtils.JTDS.equals(dbType)) {
-            return limitSQLServer(select, dbType, offset, count, check);
-        }
-
-        if (query instanceof SQLSelectQueryBlock) {
-            return limitQueryBlock(select, dbType, offset, count, check);
-        }
-
-        throw new UnsupportedOperationException();
+        return limitQueryBlock(select, dbType, offset, count, check);
     }
 
     private static boolean limitQueryBlock(SQLSelect select, String dbType, int offset, int count, boolean check) {
-        SQLSelectQueryBlock queryBlock = (SQLSelectQueryBlock) select.getQuery();
-        if (JdbcConstants.MYSQL.equals(dbType) || //
-            JdbcConstants.MARIADB.equals(dbType) || //
-            JdbcConstants.H2.equals(dbType)) {
-            return limitMySqlQueryBlock((MySqlSelectQueryBlock) queryBlock, dbType, offset, count, check);
+        SQLSelectQuery query = select.getQuery();
+        if (query instanceof SQLUnionQuery) {
+            SQLUnionQuery union = (SQLUnionQuery) query;
+            return limitUnion(union, dbType, offset, count, check);
         }
 
-        if (JdbcConstants.POSTGRESQL.equals(dbType)) {
+        SQLSelectQueryBlock queryBlock = (SQLSelectQueryBlock) query;
+        if (JdbcUtils.isMysqlDbType(dbType)) {
+            return limitMySqlQueryBlock(queryBlock, dbType, offset, count, check);
+        }
+
+        if (JdbcUtils.isPgsqlDbType(dbType)) {
             return limitPostgreSQLQueryBlock((PGSelectQueryBlock) queryBlock, dbType, offset, count, check);
         }
         throw new UnsupportedOperationException();
@@ -249,8 +270,13 @@ public class PagerUtils {
 
             SQLAggregateExpr aggregateExpr = new SQLAggregateExpr("ROW_NUMBER");
             SQLOrderBy orderBy = select.getOrderBy();
-            aggregateExpr.setOver(new SQLOver(orderBy));
-            select.setOrderBy(null);
+            if (orderBy != null) {
+                aggregateExpr.setOver(new SQLOver(orderBy));
+                select.setOrderBy(null);
+            } else if (queryBlock.getOrderBy() != null){
+                aggregateExpr.setOver(new SQLOver(queryBlock.getOrderBy()));
+                queryBlock.setOrderBy(null);
+            }
 
             queryBlock.getSelectList().add(new SQLSelectItem(aggregateExpr, "ROWNUM"));
 
@@ -369,7 +395,42 @@ public class PagerUtils {
         return true;
     }
 
-    private static boolean limitMySqlQueryBlock(MySqlSelectQueryBlock queryBlock, String dbType, int offset, int count, boolean check) {
+    private static boolean limitMySqlQueryBlock(SQLSelectQueryBlock queryBlock, String dbType, int offset, int count, boolean check) {
+        SQLLimit limit = queryBlock.getLimit();
+        if (limit != null) {
+            if (offset > 0) {
+                limit.setOffset(new SQLIntegerExpr(offset));
+            } else if (offset == 0) {
+                if (limit.getOffset() != null) {
+                    limit.setOffset(new SQLIntegerExpr(offset));
+                }
+            }
+
+            if (check && limit.getRowCount() instanceof SQLNumericLiteralExpr) {
+                int rowCount = ((SQLNumericLiteralExpr) limit.getRowCount()).getNumber().intValue();
+                if (rowCount <= count && offset <= 0) {
+                    return false;
+                }
+            } else if (check && limit.getRowCount() instanceof SQLVariantRefExpr) {
+                return false;
+            }
+
+            limit.setRowCount(new SQLIntegerExpr(count));
+        }
+
+        if (limit == null) {
+            limit = new SQLLimit();
+            if (offset > 0) {
+                limit.setOffset(new SQLIntegerExpr(offset));
+            }
+            limit.setRowCount(new SQLIntegerExpr(count));
+            queryBlock.setLimit(limit);
+        }
+
+        return true;
+    }
+
+    private static boolean limitUnion(SQLUnionQuery queryBlock, String dbType, int offset, int count, boolean check) {
         SQLLimit limit = queryBlock.getLimit();
         if (limit != null) {
             if (offset > 0) {
@@ -458,29 +519,19 @@ public class PagerUtils {
     }
 
     private static SQLSelectQueryBlock createQueryBlock(String dbType) {
-        if (JdbcConstants.MYSQL.equals(dbType)
-                || JdbcConstants.MARIADB.equals(dbType)
-                || JdbcConstants.ALIYUN_ADS.equals(dbType)) {
+        if (JdbcUtils.isPgsqlDbType(dbType)) {
             return new MySqlSelectQueryBlock();
         }
 
-        if (JdbcConstants.MARIADB.equals(dbType)) {
-            return new MySqlSelectQueryBlock();
-        }
-
-        if (JdbcConstants.H2.equals(dbType)) {
-            return new MySqlSelectQueryBlock();
-        }
-
-        if (JdbcConstants.ORACLE.equals(dbType)) {
+        if (JdbcUtils.isOracleDbType(dbType)) {
             return new OracleSelectQueryBlock();
         }
 
-        if (JdbcConstants.POSTGRESQL.equals(dbType)) {
+        if (JdbcUtils.isPgsqlDbType(dbType)) {
             return new PGSelectQueryBlock();
         }
 
-        if (JdbcConstants.SQL_SERVER.equals(dbType) || JdbcUtils.JTDS.equals(dbType)) {
+        if (JdbcUtils.isSqlserverDbType(dbType)) {
             return new SQLServerSelectQueryBlock();
         }
 
@@ -577,7 +628,7 @@ public class PagerUtils {
     public static boolean hasUnorderedLimit(String sql, String dbType) {
         List<SQLStatement> stmtList = SQLUtils.parseStatements(sql, dbType);
 
-        if (JdbcConstants.MYSQL.equals(dbType)) {
+        if (JdbcUtils.isMysqlDbType(dbType)) {
 
             MySqlUnorderedLimitDetectVisitor visitor = new MySqlUnorderedLimitDetectVisitor();
 
@@ -588,7 +639,7 @@ public class PagerUtils {
             return visitor.unorderedLimitCount > 0;
         }
 
-        if (JdbcConstants.ORACLE.equals(dbType)) {
+        if (JdbcUtils.isOracleDbType(dbType)) {
 
             OracleUnorderedLimitDetectVisitor visitor = new OracleUnorderedLimitDetectVisitor();
 

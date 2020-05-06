@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,15 +37,15 @@ public class CobarHintsTest extends TestCase {
         		") b    Order by       product_id desc  ) a limit 25 offset (1-1)*20";
 
         String mergedSql = ParameterizedOutputVisitorUtils.parameterize(sql, JdbcUtils.POSTGRESQL);
-        Assert.assertEquals("SELECT product_id, noeff_days, total_cnt\n" +
+		Assert.assertEquals("SELECT product_id, noeff_days, total_cnt\n" +
 				"FROM (\n" +
-				"\tSELECT product_id, noeff_days, COUNT(*) OVER () AS total_cnt\n" +
+				"\t(SELECT product_id, noeff_days, count(*) OVER () AS total_cnt\n" +
 				"\tFROM (\n" +
-				"\t\tSELECT product_id, noeff_days\n" +
+				"\t\t(SELECT product_id, noeff_days\n" +
 				"\t\tFROM ireport.dm_mdm_mem_prod_noeff_sdt0\n" +
-				"\t\tWHERE admin_member_seq = ?\n" +
+				"\t\tWHERE admin_member_seq = ?)\n" +
 				"\t) b\n" +
-				"\tORDER BY product_id DESC\n" +
+				"\tORDER BY product_id DESC)\n" +
 				") a\n" +
 				"LIMIT ? OFFSET (? - ?) * ?", mergedSql);
     }

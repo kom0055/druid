@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,8 +52,8 @@ public class SQLServerUpdateTest extends TestCase {
                 "FROM reg_student_charge_item a, (\n" +
                 "\t\tSELECT a.FId\n" +
                 "\t\t\t, CASE \n" +
-                "\t\t\t\tWHEN SUM(b.FChargeAmount) IS NULL THEN 0\n" +
-                "\t\t\t\tELSE SUM(b.FChargeAmount)\n" +
+                "\t\t\t\tWHEN sum(b.FChargeAmount) IS NULL THEN 0\n" +
+                "\t\t\t\tELSE sum(b.FChargeAmount)\n" +
                 "\t\t\tEND AS amount\n" +
                 "\t\tFROM reg_student_charge_item a\n" +
                 "\t\t\tLEFT JOIN reg_student_charge_daybook b ON a.FId = b.FChargeItemId\n" +

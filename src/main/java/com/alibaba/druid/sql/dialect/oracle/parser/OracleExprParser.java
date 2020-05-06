@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,17 +18,67 @@ package com.alibaba.druid.sql.dialect.oracle.parser;
 import java.math.BigInteger;
 import java.util.Arrays;
 
-import com.alibaba.druid.sql.ast.*;
+import com.alibaba.druid.sql.ast.SQLDataType;
+import com.alibaba.druid.sql.ast.SQLDataTypeImpl;
+import com.alibaba.druid.sql.ast.SQLExpr;
+import com.alibaba.druid.sql.ast.SQLKeep;
 import com.alibaba.druid.sql.ast.SQLKeep.DenseRank;
-import com.alibaba.druid.sql.ast.expr.*;
-import com.alibaba.druid.sql.ast.statement.*;
+import com.alibaba.druid.sql.ast.SQLName;
+import com.alibaba.druid.sql.ast.SQLOrderBy;
+import com.alibaba.druid.sql.ast.SQLPartition;
+import com.alibaba.druid.sql.ast.SQLPartitionBy;
+import com.alibaba.druid.sql.ast.SQLPartitionByHash;
+import com.alibaba.druid.sql.ast.SQLPartitionByList;
+import com.alibaba.druid.sql.ast.SQLPartitionByRange;
+import com.alibaba.druid.sql.ast.SQLPartitionValue;
+import com.alibaba.druid.sql.ast.SQLSubPartition;
+import com.alibaba.druid.sql.ast.SQLSubPartitionBy;
+import com.alibaba.druid.sql.ast.SQLSubPartitionByHash;
+import com.alibaba.druid.sql.ast.SQLSubPartitionByList;
+import com.alibaba.druid.sql.ast.expr.SQLAggregateExpr;
+import com.alibaba.druid.sql.ast.expr.SQLAggregateOption;
+import com.alibaba.druid.sql.ast.expr.SQLArrayExpr;
+import com.alibaba.druid.sql.ast.expr.SQLBetweenExpr;
+import com.alibaba.druid.sql.ast.expr.SQLBinaryOpExpr;
+import com.alibaba.druid.sql.ast.expr.SQLBinaryOperator;
+import com.alibaba.druid.sql.ast.expr.SQLCharExpr;
+import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
+import com.alibaba.druid.sql.ast.expr.SQLIntegerExpr;
+import com.alibaba.druid.sql.ast.expr.SQLMethodInvokeExpr;
+import com.alibaba.druid.sql.ast.expr.SQLNumericLiteralExpr;
+import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
+import com.alibaba.druid.sql.ast.expr.SQLSequenceExpr;
+import com.alibaba.druid.sql.ast.expr.SQLTimestampExpr;
+import com.alibaba.druid.sql.ast.expr.SQLUnaryExpr;
+import com.alibaba.druid.sql.ast.expr.SQLUnaryOperator;
+import com.alibaba.druid.sql.ast.expr.SQLVariantRefExpr;
+import com.alibaba.druid.sql.ast.statement.SQLCharacterDataType;
+import com.alibaba.druid.sql.ast.statement.SQLCheck;
+import com.alibaba.druid.sql.ast.statement.SQLColumnDefinition;
+import com.alibaba.druid.sql.ast.statement.SQLSelect;
+import com.alibaba.druid.sql.ast.statement.SQLUnique;
 import com.alibaba.druid.sql.dialect.oracle.ast.OracleDataTypeIntervalDay;
 import com.alibaba.druid.sql.dialect.oracle.ast.OracleDataTypeIntervalYear;
 import com.alibaba.druid.sql.dialect.oracle.ast.OracleSegmentAttributes;
 import com.alibaba.druid.sql.dialect.oracle.ast.clause.OracleLobStorageClause;
 import com.alibaba.druid.sql.dialect.oracle.ast.clause.OracleStorageClause;
 import com.alibaba.druid.sql.dialect.oracle.ast.clause.OracleStorageClause.FlashCacheType;
-import com.alibaba.druid.sql.dialect.oracle.ast.expr.*;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleAnalytic;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleAnalyticWindowing;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleBinaryDoubleExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleBinaryFloatExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleCursorExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleDatetimeExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleDbLinkExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleIntervalExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleIntervalType;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleIsOfTypeExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleIsSetExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleOuterExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleRangeExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleSizeExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleSysdateExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleTreatExpr;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleCheck;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleConstraint;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleConstraint.Initially;
@@ -36,7 +86,11 @@ import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleForeignKey;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OraclePrimaryKey;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleUnique;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleUsingIndexClause;
-import com.alibaba.druid.sql.parser.*;
+import com.alibaba.druid.sql.parser.Lexer;
+import com.alibaba.druid.sql.parser.ParserException;
+import com.alibaba.druid.sql.parser.SQLExprParser;
+import com.alibaba.druid.sql.parser.SQLParserFeature;
+import com.alibaba.druid.sql.parser.Token;
 import com.alibaba.druid.util.FnvHash;
 import com.alibaba.druid.util.JdbcConstants;
 
@@ -400,6 +454,7 @@ public class OracleExprParser extends SQLExprParser {
                     case VARIANT:
                     case QUES:
                     case IDENTIFIER:
+                    case LITERAL_ALIAS:
                         sqlExpr = expr();
                         sqlExpr = new SQLUnaryExpr(SQLUnaryOperator.Negative, sqlExpr);
                         break;
@@ -798,30 +853,29 @@ public class OracleExprParser extends SQLExprParser {
                 }
             }
 
-            over.setOrderBy(parseOrderBy());
-            if (over.getOrderBy() != null) {
+            final SQLOrderBy orderBy = parseOrderBy();
+            if (orderBy != null) {
+                over.setOrderBy(orderBy);
+
                 OracleAnalyticWindowing windowing = null;
-                if (lexer.stringVal().equalsIgnoreCase("ROWS")) {
+                if (lexer.identifierEquals(FnvHash.Constants.ROWS)) {
                     lexer.nextToken();
                     windowing = new OracleAnalyticWindowing();
                     windowing.setType(OracleAnalyticWindowing.Type.ROWS);
-                } else if (lexer.stringVal().equalsIgnoreCase("RANGE")) {
+                } else if (lexer.identifierEquals(FnvHash.Constants.RANGE)) {
                     lexer.nextToken();
                     windowing = new OracleAnalyticWindowing();
                     windowing.setType(OracleAnalyticWindowing.Type.RANGE);
                 }
 
                 if (windowing != null) {
-                    if (lexer.stringVal().equalsIgnoreCase("CURRENT")) {
+                    if (lexer.identifierEquals(FnvHash.Constants.CURRENT)) {
                         lexer.nextToken();
-                        if (lexer.stringVal().equalsIgnoreCase("ROW")) {
-                            lexer.nextToken();
-                            windowing.setExpr(new SQLIdentifierExpr("CURRENT ROW"));
-                            over.setWindowing(windowing);
-                        }
-                        throw new ParserException("syntax error. " + lexer.info());
+                        accept(Token.ROW);
+                        windowing.setExpr(new SQLIdentifierExpr("CURRENT ROW"));
+                        over.setWindowing(windowing);
                     }
-                    if (lexer.stringVal().equalsIgnoreCase("UNBOUNDED")) {
+                    if (lexer.identifierEquals(FnvHash.Constants.UNBOUNDED)) {
                         lexer.nextToken();
                         if (lexer.stringVal().equalsIgnoreCase("PRECEDING")) {
                             lexer.nextToken();
@@ -829,6 +883,52 @@ public class OracleExprParser extends SQLExprParser {
                         } else {
                             throw new ParserException("syntax error. " + lexer.info());
                         }
+                    } else if (lexer.token() == Token.BETWEEN) {
+                        lexer.nextToken();
+                        SQLExpr beginExpr;
+
+                        if (lexer.identifierEquals(FnvHash.Constants.CURRENT)) {
+                            lexer.nextToken();
+                            accept(Token.ROW);
+                            beginExpr = new SQLIdentifierExpr("CURRENT ROW");
+                        } else if (lexer.identifierEquals(FnvHash.Constants.UNBOUNDED)) {
+                            lexer.nextToken();
+                            if (lexer.stringVal().equalsIgnoreCase("PRECEDING")) {
+                                lexer.nextToken();
+                                beginExpr = new SQLIdentifierExpr("UNBOUNDED PRECEDING");
+                            } else {
+                                throw new ParserException("syntax error. " + lexer.info());
+                            }
+                        } else {
+                            beginExpr = relational();
+                        }
+
+                        accept(Token.AND);
+                        SQLExpr endExpr;
+                        if (lexer.identifierEquals(FnvHash.Constants.CURRENT)) {
+                            lexer.nextToken();
+                            accept(Token.ROW);
+                            endExpr = new SQLIdentifierExpr("CURRENT ROW");
+                        } else if (lexer.identifierEquals(FnvHash.Constants.UNBOUNDED)) {
+                            lexer.nextToken();
+                            if (lexer.stringVal().equalsIgnoreCase("PRECEDING")) {
+                                lexer.nextToken();
+                                endExpr = new SQLIdentifierExpr("UNBOUNDED PRECEDING");
+                            } else {
+                                throw new ParserException("syntax error. " + lexer.info());
+                            }
+                        } else {
+                            endExpr = relational();
+                        }
+
+                        SQLExpr expr = new SQLBetweenExpr(null, beginExpr, endExpr);
+                        windowing.setExpr(expr);
+                    } else {
+                        SQLExpr expr = this.expr();
+                        windowing.setExpr(expr);
+
+                        acceptIdentifier("PRECEDING");
+                        over.setWindowingPreceding(true);
                     }
 
                     over.setWindowing(windowing);
@@ -879,6 +979,8 @@ public class OracleExprParser extends SQLExprParser {
             interval.setValue(new SQLCharExpr(lexer.stringVal()));
         } else if (lexer.token() == Token.VARIANT) {
             interval.setValue(new SQLVariantRefExpr(lexer.stringVal()));
+        } else if (lexer.token() == Token.QUES) {
+            interval.setValue(new SQLVariantRefExpr("?"));
         } else {
             return new SQLIdentifierExpr("INTERVAL");
         }
@@ -1621,6 +1723,57 @@ public class OracleExprParser extends SQLExprParser {
                 break;
             }
         }
+    }
+
+    protected SQLPartitionBy parsePartitionBy() {
+        lexer.nextToken();
+
+        accept(Token.BY);
+
+        SQLPartitionBy partitionBy;
+
+        if (lexer.identifierEquals("RANGE")) {
+            return this.partitionByRange();
+        } else if (lexer.identifierEquals("HASH")) {
+            SQLPartitionByHash partitionByHash = this.partitionByHash();
+            this.partitionClauseRest(partitionByHash);
+
+            if (lexer.token() == Token.LPAREN) {
+                lexer.nextToken();
+                for (;;) {
+                    SQLPartition partition = this.parsePartition();
+                    partitionByHash.addPartition(partition);
+                    if (lexer.token() == Token.COMMA) {
+                        lexer.nextToken();
+                        continue;
+                    } else if (lexer.token() == Token.RPAREN) {
+                        lexer.nextToken();
+                        break;
+                    }
+                    throw new ParserException("TODO : " + lexer.info());
+                }
+            }
+            return partitionByHash;
+        } else if (lexer.identifierEquals("LIST")) {
+            SQLPartitionByList partitionByList = partitionByList();
+            this.partitionClauseRest(partitionByList);
+            return partitionByList;
+        } else {
+            throw new ParserException("TODO : " + lexer.info());
+        }
+    }
+
+    protected SQLPartitionByList partitionByList() {
+        acceptIdentifier("LIST");
+        SQLPartitionByList partitionByList = new SQLPartitionByList();
+
+        accept(Token.LPAREN);
+        partitionByList.addColumn(this.expr());
+        accept(Token.RPAREN);
+
+        this.parsePartitionByRest(partitionByList);
+
+        return partitionByList;
     }
 
     protected SQLPartitionByRange partitionByRange() {

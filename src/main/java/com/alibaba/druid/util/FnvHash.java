@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -120,6 +120,38 @@ public final class FnvHash {
 
     public static long fnv1a_64_lower(String key) {
         long hashCode = BASIC;
+        for (int i = 0; i < key.length(); ++i) {
+            char ch = key.charAt(i);
+
+            if (ch >= 'A' && ch <= 'Z') {
+                ch = (char) (ch + 32);
+            }
+
+            hashCode ^= ch;
+            hashCode *= PRIME;
+        }
+
+        return hashCode;
+    }
+
+    public static long fnv1a_64_lower(StringBuilder key) {
+        long hashCode = BASIC;
+        for (int i = 0; i < key.length(); ++i) {
+            char ch = key.charAt(i);
+
+            if (ch >= 'A' && ch <= 'Z') {
+                ch = (char) (ch + 32);
+            }
+
+            hashCode ^= ch;
+            hashCode *= PRIME;
+        }
+
+        return hashCode;
+    }
+
+    public static long fnv1a_64_lower(long basic, StringBuilder key) {
+        long hashCode = basic;
         for (int i = 0; i < key.length(); ++i) {
             char ch = key.charAt(i);
 
@@ -352,6 +384,7 @@ public final class FnvHash {
         long DATE = fnv1a_64_lower("DATE");
         long DATETIME = fnv1a_64_lower("DATETIME");
         long TIME = fnv1a_64_lower("TIME");
+        long ROLE = fnv1a_64_lower("ROLE");
         long TIMESTAMP = fnv1a_64_lower("TIMESTAMP");
         long CLOB = fnv1a_64_lower("CLOB");
         long NCLOB = fnv1a_64_lower("NCLOB");
@@ -412,9 +445,11 @@ public final class FnvHash {
         long LESS = fnv1a_64_lower("LESS");
         long MAXVALUE = fnv1a_64_lower("MAXVALUE");
         long OFFSET = fnv1a_64_lower("OFFSET");
+        long LIMIT = fnv1a_64_lower("LIMIT");
         long RAW = fnv1a_64_lower("RAW");
         long LONG_RAW = fnv1a_64_lower("LONG RAW");
         long LONG = fnv1a_64_lower("LONG");
+        long BYTE = fnv1a_64_lower("BYTE");
         long ROWNUM = fnv1a_64_lower("ROWNUM");
         long SYSDATE = fnv1a_64_lower("SYSDATE");
         long SQLCODE = fnv1a_64_lower("SQLCODE");
@@ -514,16 +549,25 @@ public final class FnvHash {
         long OWNER = fnv1a_64_lower("OWNER");
         long PORT = fnv1a_64_lower("PORT");
         long PUBLIC = fnv1a_64_lower("PUBLIC");
+        long SYNONYM = fnv1a_64_lower("SYNONYM");
         long MATERIALIZED = fnv1a_64_lower("MATERIALIZED");
         long BITMAP = fnv1a_64_lower("BITMAP");
         long PACKAGE = fnv1a_64_lower("PACKAGE");
         long TRUNC = fnv1a_64_lower("TRUNC");
         long SYSTIMESTAMP = fnv1a_64_lower("SYSTIMESTAMP");
         long TYPE = fnv1a_64_lower("TYPE");
+        long RECORD = fnv1a_64_lower("RECORD");
+        long MAP = fnv1a_64_lower("MAP");
         long ONLY = fnv1a_64_lower("ONLY");
         long MEMBER = fnv1a_64_lower("MEMBER");
         long STATIC = fnv1a_64_lower("STATIC");
+        long FINAL = fnv1a_64_lower("FINAL");
+        long INSTANTIABLE = fnv1a_64_lower("INSTANTIABLE");
         long UNSUPPORTED = fnv1a_64_lower("UNSUPPORTED");
+        long VARRAY = fnv1a_64_lower("VARRAY");
+        long WRAPPED = fnv1a_64_lower("WRAPPED");
+        long AUTHID = fnv1a_64_lower("AUTHID");
+        long UNDER = fnv1a_64_lower("UNDER");
         long USERENV = fnv1a_64_lower("USERENV");
         long NUMTODSINTERVAL = fnv1a_64_lower("NUMTODSINTERVAL");
 
@@ -541,6 +585,7 @@ public final class FnvHash {
         long SCHEDULE = fnv1a_64_lower("SCHEDULE");
         long COMPLETION = fnv1a_64_lower("COMPLETION");
         long RENAME = fnv1a_64_lower("RENAME");
+        long DUMP = fnv1a_64_lower("DUMP");
         long AT = fnv1a_64_lower("AT");
         long LANGUAGE = fnv1a_64_lower("LANGUAGE");
         long LOGFILE = fnv1a_64_lower("LOGFILE");
@@ -559,10 +604,95 @@ public final class FnvHash {
         long ENDS = fnv1a_64_lower("ENDS");
         long BINARY = fnv1a_64_lower("BINARY");
         long ISOPEN = fnv1a_64_lower("ISOPEN");
+        long CONFLICT = fnv1a_64_lower("CONFLICT");
+        long NOTHING = fnv1a_64_lower("NOTHING");
+        long COMMIT = fnv1a_64_lower("COMMIT");
 
         long RS = fnv1a_64_lower("RS");
         long RR = fnv1a_64_lower("RR");
         long CS = fnv1a_64_lower("CS");
         long UR = fnv1a_64_lower("UR");
+
+        long INT4 = fnv1a_64_lower("INT4");
+        long VARBIT = fnv1a_64_lower("VARBIT");
+        long CLUSTERED = fnv1a_64_lower("CLUSTERED");
+        long SORTED = fnv1a_64_lower("SORTED");
+        long LIFECYCLE = fnv1a_64_lower("LIFECYCLE");
+        long PARTITIONS = fnv1a_64_lower("PARTITIONS");
+        long ARRAY = fnv1a_64_lower("ARRAY");
+        long STRUCT = fnv1a_64_lower("STRUCT");
+
+        long ROLLBACK = fnv1a_64_lower("ROLLBACK");
+        long SAVEPOINT = fnv1a_64_lower("SAVEPOINT");
+        long RELEASE = fnv1a_64_lower("RELEASE");
+        long MERGE = fnv1a_64_lower("MERGE");
+        long INHERITS = fnv1a_64_lower("INHERITS");
+        long DELIMITED = fnv1a_64_lower("DELIMITED");
+        long TABLES = fnv1a_64_lower("TABLES");
+        long PARALLEL = fnv1a_64_lower("PARALLEL");
+        long BUILD = fnv1a_64_lower("BUILD");
+        long NOCACHE = fnv1a_64_lower("NOCACHE");
+        long NOPARALLEL = fnv1a_64_lower("NOPARALLEL");
+        long EXIST = fnv1a_64_lower("EXIST");
+
+        long TBLPROPERTIES = fnv1a_64_lower("TBLPROPERTIES");
+        long FULLTEXT = fnv1a_64_lower("FULLTEXT");
+        long SPATIAL = fnv1a_64_lower("SPATIAL");
+        long NO = fnv1a_64_lower("NO");
+        long PATH = fnv1a_64_lower("PATH");
+        long COMPRESSION = fnv1a_64_lower("COMPRESSION");
+        long KEY_BLOCK_SIZE = fnv1a_64_lower("KEY_BLOCK_SIZE");
+        long CHECKSUM = fnv1a_64_lower("CHECKSUM");
+        long ROUTINE = fnv1a_64_lower("ROUTINE");
+        long DATE_FORMAT = fnv1a_64_lower("DATE_FORMAT");
+        long DBPARTITION = fnv1a_64_lower("DBPARTITION");
+        long TBPARTITION = fnv1a_64_lower("TBPARTITION");
+        long TBPARTITIONS = fnv1a_64_lower("TBPARTITIONS");
+        long SOUNDS = fnv1a_64_lower("SOUNDS");
+        long WINDOW = fnv1a_64_lower("WINDOW");
+        long GENERATED = fnv1a_64_lower("GENERATED");
+        long ALWAYS = fnv1a_64_lower("ALWAYS");
+        long INCREMENT = fnv1a_64_lower("INCREMENT");
+
+        long OVERWRITE = fnv1a_64_lower("OVERWRITE");
+        long FILTER = fnv1a_64_lower("FILTER");
+        long MAPJOIN = fnv1a_64_lower("MAPJOIN");
+        long DISTRIBUTE = fnv1a_64_lower("DISTRIBUTE");
+        long SORT = fnv1a_64_lower("SORT");
+        long CLUSTER = fnv1a_64_lower("CLUSTER");
+        long GROUPING = fnv1a_64_lower("GROUPING");
+        long IDENTIFIED = fnv1a_64_lower("IDENTIFIED");
+        long STRAIGHT = fnv1a_64_lower("STRAIGHT");
+        long IFNULL = fnv1a_64_lower("IFNULL");
+        long TO_DATE = fnv1a_64_lower("TO_DATE");
+        long ADD_MONTHS = fnv1a_64_lower("ADD_MONTHS");
+        long PERIOD_ADD = fnv1a_64_lower("PERIOD_ADD");
+        long PERIOD_DIFF = fnv1a_64_lower("PERIOD_DIFF");
+        long ISNULL = fnv1a_64_lower("ISNULL");
+        long COALESCE = fnv1a_64_lower("COALESCE");
+        long NVL = fnv1a_64_lower("NVL");
+        long ROUND = fnv1a_64_lower("ROUND");
+        long BIT_COUNT = fnv1a_64_lower("BIT_COUNT");
+        long WEIGHT_STRING = fnv1a_64_lower("WEIGHT_STRING");
+        long REVERSE = fnv1a_64_lower("REVERSE");
+        long TABLESAMPLE = fnv1a_64_lower("TABLESAMPLE");
+        long BUCKET = fnv1a_64_lower("BUCKET");
+        long UNNEST = fnv1a_64_lower("UNNEST");
+        long FIELDS = fnv1a_64_lower("FIELDS");
+        long ESCAPED = fnv1a_64_lower("ESCAPED");
+        long YEAR_TO_MONTH = fnv1a_64_lower("YEAR_TO_MONTH");
+        long COLPROPERTIES = fnv1a_64_lower("COLPROPERTIES");
+        long MAPPED = fnv1a_64_lower("MAPPED");
+        long LINES = fnv1a_64_lower("LINES");
+        long COLLECTION = fnv1a_64_lower("COLLECTION");
+        long SERDE = fnv1a_64_lower("SERDE");
+        long OUTLINE = fnv1a_64_lower("OUTLINE");
+        long BD = fnv1a_64_lower("BD");
+        long CURRENT_DATE = fnv1a_64_lower("CURRENT_DATE");
+        long PARTITION = fnv1a_64_lower("PARTITION");
+        long MODEL = fnv1a_64_lower("MODEL");
+        long DIMENSION = fnv1a_64_lower("DIMENSION");
+        long KEEP = fnv1a_64_lower("KEEP");
+        long PIVOT = fnv1a_64_lower("PIVOT");
     }
 }

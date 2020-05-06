@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ public class OdpsSelectTest21 extends TestCase {
     public void test_select() throws Exception {
         // 1095288847322
         String sql = "select wm_concat(',', a) from values('abc', 1), (null, 2) t (a, i);";//
-        Assert.assertEquals("SELECT WM_CONCAT(',', a)\n" +
+        Assert.assertEquals("SELECT wm_concat(',', a)\n" +
                 "FROM VALUES ('abc', 1), (NULL, 2) t (a, i);", SQLUtils.formatOdps(sql));
         Assert.assertEquals("select wm_concat(',', a)\n" +
                 "from values ('abc', 1), (null, 2) t (a, i);", SQLUtils.formatOdps(sql, SQLUtils.DEFAULT_LCASE_FORMAT_OPTION));

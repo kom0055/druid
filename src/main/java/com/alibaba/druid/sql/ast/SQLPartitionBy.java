@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 package com.alibaba.druid.sql.ast;
+
+import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -100,6 +102,21 @@ public abstract class SQLPartitionBy extends SQLObjectImpl {
             name2.setParent(x);
             x.storeIn.add(name2);
         }
+    }
+
+    public boolean isPartitionByColumn(long columnNameHashCode64) {
+        for (SQLExpr column : columns) {
+            if (column instanceof SQLIdentifierExpr
+                    && ((SQLIdentifierExpr) column)
+                    .nameHashCode64() == columnNameHashCode64) {
+                return true;
+            }
+        }
+
+        if (subPartitionBy != null) {
+            return subPartitionBy.isPartitionByColumn(columnNameHashCode64);
+        }
+        return false;
     }
 
     public abstract SQLPartitionBy clone();

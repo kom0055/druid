@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -473,9 +473,12 @@ public class StatFilter extends FilterEventAdapter implements StatFilterMBean {
                 String slowParameters = buildSlowParameters(statement);
                 sqlStat.setLastSlowParameters(slowParameters);
 
+                String lastExecSql = statement.getLastExecuteSql();
                 if (logSlowSql) {
-                    LOG.error("slow sql " + millis + " millis. " + statement.getLastExecuteSql() + "" + slowParameters);
+                    LOG.error("slow sql " + millis + " millis. " + lastExecSql + "" + slowParameters);
                 }
+
+                handleSlowSql(statement);
             }
         }
 
@@ -483,6 +486,10 @@ public class StatFilter extends FilterEventAdapter implements StatFilterMBean {
         StatFilterContext.getInstance().executeAfter(sql, nanos, null);
 
         Profiler.release(nanos);
+    }
+
+    protected void handleSlowSql(StatementProxy statementProxy) {
+
     }
 
     @Override
@@ -513,7 +520,7 @@ public class StatFilter extends FilterEventAdapter implements StatFilterMBean {
         Profiler.release(nanos);
     }
 
-    private String buildSlowParameters(StatementProxy statement) {
+    protected String buildSlowParameters(StatementProxy statement) {
         JSONWriter out = new JSONWriter();
 
         out.writeArrayStart();
@@ -789,6 +796,21 @@ public class StatFilter extends FilterEventAdapter implements StatFilterMBean {
     }
 
     @Override
+    public <T> T resultSet_getObject(FilterChain chain, ResultSetProxy result, int columnIndex, Class<T> type) throws SQLException {
+        T obj = chain.resultSet_getObject(result, columnIndex, type);
+
+        if (obj instanceof Clob) {
+            clobOpenAfter(chain.getDataSource().getDataSourceStat(), result, (ClobProxy) obj);
+        } else if (obj instanceof Blob) {
+            blobOpenAfter(chain.getDataSource().getDataSourceStat(), result, (Blob) obj);
+        } else if (obj instanceof String) {
+            result.addReadStringLength(((String) obj).length());
+        }
+
+        return obj;
+    }
+
+    @Override
     public Object resultSet_getObject(FilterChain chain, ResultSetProxy result, int columnIndex,
                                       java.util.Map<String, Class<?>> map) throws SQLException {
         Object obj = chain.resultSet_getObject(result, columnIndex, map);
@@ -807,6 +829,21 @@ public class StatFilter extends FilterEventAdapter implements StatFilterMBean {
     @Override
     public Object resultSet_getObject(FilterChain chain, ResultSetProxy result, String columnLabel) throws SQLException {
         Object obj = chain.resultSet_getObject(result, columnLabel);
+
+        if (obj instanceof Clob) {
+            clobOpenAfter(chain.getDataSource().getDataSourceStat(), result, (ClobProxy) obj);
+        } else if (obj instanceof Blob) {
+            blobOpenAfter(chain.getDataSource().getDataSourceStat(), result, (Blob) obj);
+        } else if (obj instanceof String) {
+            result.addReadStringLength(((String) obj).length());
+        }
+
+        return obj;
+    }
+
+    @Override
+    public <T> T resultSet_getObject(FilterChain chain, ResultSetProxy result, String columnLabel, Class<T> type) throws SQLException {
+        T obj = chain.resultSet_getObject(result, columnLabel, type);
 
         if (obj instanceof Clob) {
             clobOpenAfter(chain.getDataSource().getDataSourceStat(), result, (ClobProxy) obj);

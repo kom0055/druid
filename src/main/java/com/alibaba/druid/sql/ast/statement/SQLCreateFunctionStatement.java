@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,17 @@
  */
 package com.alibaba.druid.sql.ast.statement;
 
-import com.alibaba.druid.sql.ast.*;
-import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
-import com.alibaba.druid.sql.visitor.SQLASTVisitor;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import com.alibaba.druid.sql.ast.SQLDataType;
+import com.alibaba.druid.sql.ast.SQLName;
+import com.alibaba.druid.sql.ast.SQLObjectWithDataType;
+import com.alibaba.druid.sql.ast.SQLParameter;
+import com.alibaba.druid.sql.ast.SQLStatement;
+import com.alibaba.druid.sql.ast.SQLStatementImpl;
+import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
+import com.alibaba.druid.sql.visitor.SQLASTVisitor;
 
 /**
  * Created by wenshao on 23/05/2017.
@@ -44,13 +49,13 @@ public class SQLCreateFunctionStatement extends SQLStatementImpl implements SQLC
     // for mysql
 
     private String             comment;
-
     private boolean            deterministic  = false;
     private boolean            parallelEnable;
     private boolean            aggregate;
     private SQLName            using;
     private boolean            pipelined;
     private boolean            resultCache;
+    private String             wrappedSource;
 
     public SQLCreateFunctionStatement clone() {
         SQLCreateFunctionStatement x = new SQLCreateFunctionStatement();
@@ -256,5 +261,13 @@ public class SQLCreateFunctionStatement extends SQLStatementImpl implements SQLC
 
     public void setResultCache(boolean resultCache) {
         this.resultCache = resultCache;
+    }
+
+    public String getWrappedSource() {
+        return wrappedSource;
+    }
+
+    public void setWrappedSource(String wrappedSource) {
+        this.wrappedSource = wrappedSource;
     }
 }

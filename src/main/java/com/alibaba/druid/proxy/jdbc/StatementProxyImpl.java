@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -503,11 +503,11 @@ public class StatementProxyImpl extends WrapperProxyImpl implements StatementPro
     }
 
     public void closeOnCompletion() throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        statement.closeOnCompletion();
     }
 
     public boolean isCloseOnCompletion() throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        return statement.isCloseOnCompletion();
     }
 
     @Override

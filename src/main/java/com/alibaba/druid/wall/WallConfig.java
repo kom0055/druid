@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,19 @@
  */
 package com.alibaba.druid.wall;
 
-import com.alibaba.druid.sql.SQLUtils;
-import com.alibaba.druid.wall.spi.WallVisitorUtils;
-
-import java.util.*;
-import java.util.concurrent.ConcurrentSkipListSet;
-
 import static com.alibaba.druid.util.Utils.getBoolean;
 import static com.alibaba.druid.util.Utils.getInteger;
 import static com.alibaba.druid.wall.spi.WallVisitorUtils.loadResource;
+
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
+
+import com.alibaba.druid.sql.SQLUtils;
+import com.alibaba.druid.wall.spi.WallVisitorUtils;
 
 public class WallConfig implements WallConfigMBean {
 

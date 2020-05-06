@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,6 +61,8 @@ public interface FilterChain {
     DataSourceProxy getDataSource();
 
     int getFilterSize();
+
+    int getPos();
 
     FilterChain cloneChain();
 
@@ -264,7 +266,11 @@ public interface FilterChain {
 
     Object resultSet_getObject(ResultSetProxy resultSet, int columnIndex) throws SQLException;
 
+    <T> T resultSet_getObject(ResultSetProxy resultSet, int columnIndex, Class<T> type) throws SQLException;
+
     Object resultSet_getObject(ResultSetProxy resultSet, String columnLabel) throws SQLException;
+
+    <T> T resultSet_getObject(ResultSetProxy resultSet, String columnLabel, Class<T> type) throws SQLException;
 
     int resultSet_findColumn(ResultSetProxy resultSet, String columnLabel) throws SQLException;
 

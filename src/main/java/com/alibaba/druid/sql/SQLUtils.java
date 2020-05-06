@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,28 @@ package com.alibaba.druid.sql;
 import java.util.List;
 import java.util.Map;
 
-import com.alibaba.druid.sql.ast.*;
-import com.alibaba.druid.sql.ast.expr.*;
-import com.alibaba.druid.sql.ast.statement.*;
+import com.alibaba.druid.sql.ast.SQLExpr;
+import com.alibaba.druid.sql.ast.SQLName;
+import com.alibaba.druid.sql.ast.SQLObject;
+import com.alibaba.druid.sql.ast.SQLReplaceable;
+import com.alibaba.druid.sql.ast.SQLStatement;
+import com.alibaba.druid.sql.ast.expr.SQLBinaryOpExpr;
+import com.alibaba.druid.sql.ast.expr.SQLBinaryOperator;
+import com.alibaba.druid.sql.ast.expr.SQLInListExpr;
+import com.alibaba.druid.sql.ast.expr.SQLLiteralExpr;
+import com.alibaba.druid.sql.ast.expr.SQLUnaryExpr;
+import com.alibaba.druid.sql.ast.expr.SQLUnaryOperator;
+import com.alibaba.druid.sql.ast.expr.SQLVariantRefExpr;
+import com.alibaba.druid.sql.ast.statement.SQLCreateTableStatement;
+import com.alibaba.druid.sql.ast.statement.SQLDeleteStatement;
+import com.alibaba.druid.sql.ast.statement.SQLSelectItem;
+import com.alibaba.druid.sql.ast.statement.SQLSelectOrderByItem;
+import com.alibaba.druid.sql.ast.statement.SQLSelectQuery;
+import com.alibaba.druid.sql.ast.statement.SQLSelectQueryBlock;
+import com.alibaba.druid.sql.ast.statement.SQLSelectStatement;
+import com.alibaba.druid.sql.ast.statement.SQLSetStatement;
+import com.alibaba.druid.sql.ast.statement.SQLUpdateSetItem;
+import com.alibaba.druid.sql.ast.statement.SQLUpdateStatement;
 import com.alibaba.druid.sql.dialect.db2.visitor.DB2OutputVisitor;
 import com.alibaba.druid.sql.dialect.db2.visitor.DB2SchemaStatVisitor;
 import com.alibaba.druid.sql.dialect.h2.visitor.H2OutputVisitor;
@@ -38,7 +57,13 @@ import com.alibaba.druid.sql.dialect.postgresql.visitor.PGOutputVisitor;
 import com.alibaba.druid.sql.dialect.postgresql.visitor.PGSchemaStatVisitor;
 import com.alibaba.druid.sql.dialect.sqlserver.visitor.SQLServerOutputVisitor;
 import com.alibaba.druid.sql.dialect.sqlserver.visitor.SQLServerSchemaStatVisitor;
-import com.alibaba.druid.sql.parser.*;
+import com.alibaba.druid.sql.parser.Lexer;
+import com.alibaba.druid.sql.parser.ParserException;
+import com.alibaba.druid.sql.parser.SQLExprParser;
+import com.alibaba.druid.sql.parser.SQLParserFeature;
+import com.alibaba.druid.sql.parser.SQLParserUtils;
+import com.alibaba.druid.sql.parser.SQLStatementParser;
+import com.alibaba.druid.sql.parser.Token;
 import com.alibaba.druid.sql.visitor.SQLASTOutputVisitor;
 import com.alibaba.druid.sql.visitor.SchemaStatVisitor;
 import com.alibaba.druid.sql.visitor.VisitorFeature;
@@ -254,6 +279,9 @@ public class SQLUtils {
             SQLStatementParser parser = SQLParserUtils.createSQLStatementParser(sql, dbType, FORMAT_DEFAULT_FEATURES);
             List<SQLStatement> statementList = parser.parseStatementList();
             return toSQLString(statementList, dbType, parameters, option);
+        } catch (ClassCastException ex) {
+            LOG.warn("format error, dbType : " + dbType, ex);
+            return sql;
         } catch (ParserException ex) {
             LOG.warn("format error", ex);
             return sql;
@@ -366,7 +394,7 @@ public class SQLUtils {
     public static SQLASTOutputVisitor createFormatOutputVisitor(Appendable out, //
                                                                 List<SQLStatement> statementList, //
                                                                 String dbType) {
-        if (JdbcConstants.ORACLE.equals(dbType) || JdbcConstants.ALI_ORACLE.equals(dbType)) {
+        if (JdbcUtils.isOracleDbType(dbType)) {
             if (statementList == null || statementList.size() == 1) {
                 return new OracleOutputVisitor(out, false);
             } else {
@@ -374,16 +402,19 @@ public class SQLUtils {
             }
         }
 
-        if (JdbcConstants.MYSQL.equals(dbType) //
-                || JdbcConstants.MARIADB.equals(dbType)) {
+        if (JdbcConstants.H2.equals(dbType)) {
+            return new H2OutputVisitor(out);
+        }
+
+        if (JdbcUtils.isMysqlDbType(dbType)) {
             return new MySqlOutputVisitor(out);
         }
 
-        if (JdbcConstants.POSTGRESQL.equals(dbType)) {
+        if (JdbcUtils.isPgsqlDbType(dbType)) {
             return new PGOutputVisitor(out);
         }
 
-        if (JdbcConstants.SQL_SERVER.equals(dbType) || JdbcConstants.JTDS.equals(dbType)) {
+        if (JdbcUtils.isSqlserverDbType(dbType)) {
             return new SQLServerOutputVisitor(out);
         }
 
@@ -393,10 +424,6 @@ public class SQLUtils {
 
         if (JdbcConstants.ODPS.equals(dbType)) {
             return new OdpsOutputVisitor(out);
-        }
-
-        if (JdbcConstants.H2.equals(dbType)) {
-            return new H2OutputVisitor(out);
         }
 
         if (JdbcConstants.HIVE.equals(dbType)) {
@@ -416,20 +443,23 @@ public class SQLUtils {
     }
 
     public static SchemaStatVisitor createSchemaStatVisitor(String dbType) {
-        if (JdbcConstants.ORACLE.equals(dbType) || JdbcConstants.ALI_ORACLE.equals(dbType)) {
+        if (JdbcUtils.isOracleDbType(dbType)) {
             return new OracleSchemaStatVisitor();
         }
 
-        if (JdbcConstants.MYSQL.equals(dbType) || //
-                JdbcConstants.MARIADB.equals(dbType)) {
+        if (JdbcConstants.H2.equals(dbType)) {
+            return new H2SchemaStatVisitor();
+        }
+
+        if (JdbcUtils.isMysqlDbType(dbType)) {
             return new MySqlSchemaStatVisitor();
         }
 
-        if (JdbcConstants.POSTGRESQL.equals(dbType)) {
+        if (JdbcUtils.isPgsqlDbType(dbType)) {
             return new PGSchemaStatVisitor();
         }
 
-        if (JdbcConstants.SQL_SERVER.equals(dbType) || JdbcConstants.JTDS.equals(dbType)) {
+        if (JdbcUtils.isSqlserverDbType(dbType)) {
             return new SQLServerSchemaStatVisitor();
         }
 
@@ -441,9 +471,6 @@ public class SQLUtils {
             return new OdpsSchemaStatVisitor();
         }
 
-        if (JdbcConstants.H2.equals(dbType)) {
-            return new H2SchemaStatVisitor();
-        }
 
         if (JdbcConstants.HIVE.equals(dbType)) {
             return new HiveSchemaStatVisitor();
@@ -457,7 +484,11 @@ public class SQLUtils {
     }
 
     public static List<SQLStatement> parseStatements(String sql, String dbType) {
-        SQLStatementParser parser = SQLParserUtils.createSQLStatementParser(sql, dbType);
+        return parseStatements(sql, dbType, new SQLParserFeature[0]);
+    }
+
+    public static List<SQLStatement> parseStatements(String sql, String dbType, SQLParserFeature... features) {
+        SQLStatementParser parser = SQLParserUtils.createSQLStatementParser(sql, dbType, features);
         List<SQLStatement> stmtList = parser.parseStatementList();
         if (parser.getLexer().token() != Token.EOF) {
             throw new ParserException("syntax error : " + sql);
@@ -474,6 +505,24 @@ public class SQLUtils {
         return stmtList;
     }
 
+    public static SQLStatement parseSingleStatement(String sql, String dbType, SQLParserFeature... features) {
+        SQLStatementParser parser = SQLParserUtils.createSQLStatementParser(sql, dbType, features);
+        List<SQLStatement> stmtList = parser.parseStatementList();
+
+        if (stmtList.size() > 1) {
+            throw new ParserException(" Mutil-Statment be found.");
+        }
+
+        if (parser.getLexer().token() != Token.EOF) {
+            throw new ParserException("syntax error. " + sql);
+        }
+        return stmtList.get(0);
+    }
+
+    public static SQLStatement parseSingleMysqlStatement(String sql) {
+        return parseSingleStatement(sql, JdbcConstants.MYSQL);
+    }
+
     /**
      * @author owenludong.lud
      * @param columnName
@@ -487,10 +536,10 @@ public class SQLUtils {
         if (StringUtils.isEmpty(columnName)) return "";
         if (StringUtils.isEmpty(dbType)) dbType = JdbcConstants.MYSQL;
         String formatMethod = "";
-        if (JdbcConstants.MYSQL.equalsIgnoreCase(dbType)) {
+        if (JdbcUtils.isMysqlDbType(dbType)) {
             formatMethod = "STR_TO_DATE";
             if (StringUtils.isEmpty(pattern)) pattern = "%Y-%m-%d %H:%i:%s";
-        } else if (JdbcConstants.ORACLE.equalsIgnoreCase(dbType)) {
+        } else if (JdbcUtils.isOracleDbType(dbType)) {
             formatMethod = "TO_DATE";
             if (StringUtils.isEmpty(pattern)) pattern = "yyyy-mm-dd hh24:mi:ss";
         } else {
@@ -830,16 +879,21 @@ public class SQLUtils {
             char x0 = name.charAt(name.length() - 1);
             if ((c0 == '"' && x0 == '"') || (c0 == '`' && x0 == '`')) {
                 String normalizeName = name.substring(1, name.length() - 1);
+                if (c0 == '`') {
+                    normalizeName = normalizeName.replaceAll("`\\.`", ".");
+                }
 
-                if (JdbcConstants.ORACLE.equals(dbType)) {
+                if (JdbcUtils.isOracleDbType(dbType)) {
                     if (OracleUtils.isKeyword(normalizeName)) {
                         return name;
                     }
-                } else if (JdbcConstants.MYSQL.equals(dbType)) {
+                } else if (JdbcUtils.isMysqlDbType(dbType)) {
                     if (MySqlUtils.isKeyword(normalizeName)) {
                         return name;
                     }
-                } else if (JdbcConstants.POSTGRESQL.equals(dbType)) {
+                } else if (JdbcUtils.isPgsqlDbType(dbType)
+                        || JdbcConstants.ENTERPRISEDB.equals(dbType)
+                        || JdbcConstants.POLARDB.equals(dbType)) {
                     if (PGUtils.isKeyword(normalizeName)) {
                         return name;
                     }
@@ -937,7 +991,7 @@ public class SQLUtils {
      * @return
      */
     public static String sort(String sql, String dbType) {
-        List stmtList = SQLUtils.parseStatements(sql, JdbcConstants.ORACLE);
+        List<SQLStatement> stmtList = SQLUtils.parseStatements(sql, JdbcConstants.ORACLE);
         SQLCreateTableStatement.sort(stmtList);
         return SQLUtils.toSQLString(stmtList, dbType);
     }

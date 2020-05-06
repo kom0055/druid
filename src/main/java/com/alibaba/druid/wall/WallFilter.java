@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,25 +15,7 @@
  */
 package com.alibaba.druid.wall;
 
-import com.alibaba.druid.filter.FilterAdapter;
-import com.alibaba.druid.filter.FilterChain;
-import com.alibaba.druid.proxy.jdbc.*;
-import com.alibaba.druid.sql.ast.SQLExpr;
-import com.alibaba.druid.sql.ast.expr.SQLValuableExpr;
-import com.alibaba.druid.sql.ast.expr.SQLVariantRefExpr;
-import com.alibaba.druid.support.logging.Log;
-import com.alibaba.druid.support.logging.LogFactory;
-import com.alibaba.druid.util.JdbcUtils;
-import com.alibaba.druid.util.ServletPathMatcher;
-import com.alibaba.druid.util.StringUtils;
-import com.alibaba.druid.wall.WallConfig.TenantCallBack;
-import com.alibaba.druid.wall.WallConfig.TenantCallBack.StatementType;
-import com.alibaba.druid.wall.spi.DB2WallProvider;
-import com.alibaba.druid.wall.spi.MySqlWallProvider;
-import com.alibaba.druid.wall.spi.OracleWallProvider;
-import com.alibaba.druid.wall.spi.PGWallProvider;
-import com.alibaba.druid.wall.spi.SQLServerWallProvider;
-import com.alibaba.druid.wall.violation.SyntaxErrorViolation;
+import static com.alibaba.druid.util.Utils.getBoolean;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -58,7 +40,32 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
-import static com.alibaba.druid.util.Utils.getBoolean;
+import com.alibaba.druid.filter.FilterAdapter;
+import com.alibaba.druid.filter.FilterChain;
+import com.alibaba.druid.proxy.jdbc.CallableStatementProxy;
+import com.alibaba.druid.proxy.jdbc.ConnectionProxy;
+import com.alibaba.druid.proxy.jdbc.DataSourceProxy;
+import com.alibaba.druid.proxy.jdbc.JdbcParameter;
+import com.alibaba.druid.proxy.jdbc.PreparedStatementProxy;
+import com.alibaba.druid.proxy.jdbc.ResultSetMetaDataProxy;
+import com.alibaba.druid.proxy.jdbc.ResultSetProxy;
+import com.alibaba.druid.proxy.jdbc.StatementProxy;
+import com.alibaba.druid.sql.ast.SQLExpr;
+import com.alibaba.druid.sql.ast.expr.SQLValuableExpr;
+import com.alibaba.druid.sql.ast.expr.SQLVariantRefExpr;
+import com.alibaba.druid.support.logging.Log;
+import com.alibaba.druid.support.logging.LogFactory;
+import com.alibaba.druid.util.JdbcUtils;
+import com.alibaba.druid.util.ServletPathMatcher;
+import com.alibaba.druid.util.StringUtils;
+import com.alibaba.druid.wall.WallConfig.TenantCallBack;
+import com.alibaba.druid.wall.WallConfig.TenantCallBack.StatementType;
+import com.alibaba.druid.wall.spi.DB2WallProvider;
+import com.alibaba.druid.wall.spi.MySqlWallProvider;
+import com.alibaba.druid.wall.spi.OracleWallProvider;
+import com.alibaba.druid.wall.spi.PGWallProvider;
+import com.alibaba.druid.wall.spi.SQLServerWallProvider;
+import com.alibaba.druid.wall.violation.SyntaxErrorViolation;
 
 public class WallFilter extends FilterAdapter implements WallFilterMBean {
 
@@ -122,28 +129,28 @@ public class WallFilter extends FilterAdapter implements WallFilterMBean {
             dbType = JdbcUtils.getDbType(dataSource.getUrl(), null);
         }
 
-        if (JdbcUtils.MYSQL.equals(dbType) || //
-            JdbcUtils.MARIADB.equals(dbType) || //
-            JdbcUtils.H2.equals(dbType)) {
+        if (JdbcUtils.isMysqlDbType(dbType) || //
+            JdbcUtils.PRESTO.equals(dbType)) {
             if (config == null) {
                 config = new WallConfig(MySqlWallProvider.DEFAULT_CONFIG_DIR);
             }
 
             provider = new MySqlWallProvider(config);
-        } else if (JdbcUtils.ORACLE.equals(dbType) || JdbcUtils.ALI_ORACLE.equals(dbType)) {
+        } else if (JdbcUtils.isOracleDbType(dbType)) {
             if (config == null) {
                 config = new WallConfig(OracleWallProvider.DEFAULT_CONFIG_DIR);
             }
 
             provider = new OracleWallProvider(config);
-        } else if (JdbcUtils.SQL_SERVER.equals(dbType) || JdbcUtils.JTDS.equals(dbType)) {
+        } else if (JdbcUtils.isSqlserverDbType(dbType)) {
             if (config == null) {
                 config = new WallConfig(SQLServerWallProvider.DEFAULT_CONFIG_DIR);
             }
 
             provider = new SQLServerWallProvider(config);
-        } else if (JdbcUtils.POSTGRESQL.equals(dbType)
-                || JdbcUtils.ENTERPRISEDB.equals(dbType)) {
+        } else if (JdbcUtils.isPgsqlDbType(dbType)
+                || JdbcUtils.ENTERPRISEDB.equals(dbType)
+                || JdbcUtils.POLARDB.equals(dbType)) {
             if (config == null) {
                 config = new WallConfig(PGWallProvider.DEFAULT_CONFIG_DIR);
             }
@@ -981,6 +988,11 @@ public class WallFilter extends FilterAdapter implements WallFilterMBean {
     @Override
     public Object resultSet_getObject(FilterChain chain, ResultSetProxy resultSet, int columnIndex) throws SQLException {
         return chain.resultSet_getObject(resultSet, resultSet.getPhysicalColumn(columnIndex));
+    }
+
+    @Override
+    public <T> T resultSet_getObject(FilterChain chain, ResultSetProxy resultSet, int columnIndex, Class<T> type) throws SQLException {
+        return chain.resultSet_getObject(resultSet, resultSet.getPhysicalColumn(columnIndex), type);
     }
 
     @Override

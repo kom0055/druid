@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.alibaba.druid.sql.SQLUtils;
-import com.alibaba.druid.sql.ast.*;
+import com.alibaba.druid.sql.ast.SQLExpr;
+import com.alibaba.druid.sql.ast.SQLHint;
+import com.alibaba.druid.sql.ast.SQLLimit;
+import com.alibaba.druid.sql.ast.SQLObject;
+import com.alibaba.druid.sql.ast.SQLObjectImpl;
+import com.alibaba.druid.sql.ast.SQLOrderBy;
+import com.alibaba.druid.sql.ast.SQLStatement;
+import com.alibaba.druid.sql.ast.expr.SQLAllColumnExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.OracleSQLObject;
+import com.alibaba.druid.sql.visitor.SQLASTOutputVisitor;
 import com.alibaba.druid.sql.visitor.SQLASTVisitor;
+import com.alibaba.druid.util.JdbcConstants;
 
 public class SQLSelect extends SQLObjectImpl {
 
     protected SQLWithSubqueryClause withSubQuery;
     protected SQLSelectQuery        query;
     protected SQLOrderBy            orderBy;
+    protected SQLLimit              limit;
 
     protected List<SQLHint>         hints;
 
@@ -114,31 +125,85 @@ public class SQLSelect extends SQLObjectImpl {
     }
 
     @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((orderBy == null) ? 0 : orderBy.hashCode());
-        result = prime * result + ((query == null) ? 0 : query.hashCode());
-        result = prime * result + ((withSubQuery == null) ? 0 : withSubQuery.hashCode());
-        return result;
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        SQLSelect sqlSelect = (SQLSelect) o;
+
+        if (forBrowse != sqlSelect.forBrowse) {
+            return false;
+        }
+        if (withSubQuery != null ? !withSubQuery.equals(sqlSelect.withSubQuery) : sqlSelect.withSubQuery != null) {
+            return false;
+        }
+        if (query != null ? !query.equals(sqlSelect.query) : sqlSelect.query != null) {
+            return false;
+        }
+        if (orderBy != null ? !orderBy.equals(sqlSelect.orderBy) : sqlSelect.orderBy != null) {
+            return false;
+        }
+        if (limit != null ? !limit.equals(sqlSelect.limit) : sqlSelect.limit != null) {
+            return false;
+        }
+        if (hints != null ? !hints.equals(sqlSelect.hints) : sqlSelect.hints != null) {
+            return false;
+        }
+        if (restriction != null ? !restriction.equals(sqlSelect.restriction) : sqlSelect.restriction != null) {
+            return false;
+        }
+        if (forXmlOptions != null ? !forXmlOptions.equals(sqlSelect.forXmlOptions) : sqlSelect.forXmlOptions != null) {
+            return false;
+        }
+        if (xmlPath != null ? !xmlPath.equals(sqlSelect.xmlPath) : sqlSelect.xmlPath != null) {
+            return false;
+        }
+        if (rowCount != null ? !rowCount.equals(sqlSelect.rowCount) : sqlSelect.rowCount != null) {
+            return false;
+        }
+        return offset != null ? offset.equals(sqlSelect.offset) : sqlSelect.offset == null;
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null) return false;
-        if (getClass() != obj.getClass()) return false;
-        SQLSelect other = (SQLSelect) obj;
-        if (orderBy == null) {
-            if (other.orderBy != null) return false;
-        } else if (!orderBy.equals(other.orderBy)) return false;
-        if (query == null) {
-            if (other.query != null) return false;
-        } else if (!query.equals(other.query)) return false;
-        if (withSubQuery == null) {
-            if (other.withSubQuery != null) return false;
-        } else if (!withSubQuery.equals(other.withSubQuery)) return false;
-        return true;
+    public int hashCode()
+    {
+        int result = withSubQuery != null ? withSubQuery.hashCode() : 0;
+        result = 31 * result + (query != null ? query.hashCode() : 0);
+        result = 31 * result + (orderBy != null ? orderBy.hashCode() : 0);
+        result = 31 * result + (limit != null ? limit.hashCode() : 0);
+        result = 31 * result + (hints != null ? hints.hashCode() : 0);
+        result = 31 * result + (restriction != null ? restriction.hashCode() : 0);
+        result = 31 * result + (forBrowse ? 1 : 0);
+        result = 31 * result + (forXmlOptions != null ? forXmlOptions.hashCode() : 0);
+        result = 31 * result + (xmlPath != null ? xmlPath.hashCode() : 0);
+        result = 31 * result + (rowCount != null ? rowCount.hashCode() : 0);
+        result = 31 * result + (offset != null ? offset.hashCode() : 0);
+        return result;
+    }
+
+    public void output(StringBuffer buf) {
+        String dbType = null;
+
+        SQLObject parent = this.getParent();
+        if (parent instanceof SQLStatement) {
+            dbType = ((SQLStatement) parent).getDbType();
+        }
+
+        if (dbType == null && parent instanceof OracleSQLObject) {
+            dbType = JdbcConstants.ORACLE;
+        }
+
+        if (dbType == null && query instanceof SQLSelectQueryBlock) {
+            dbType = ((SQLSelectQueryBlock) query).dbType;
+        }
+
+        SQLASTOutputVisitor visitor = SQLUtils.createOutputVisitor(buf, dbType);
+        this.accept(visitor);
     }
 
     public String toString() {
@@ -146,6 +211,18 @@ public class SQLSelect extends SQLObjectImpl {
         if (parent instanceof SQLStatement) {
             String dbType = ((SQLStatement) parent).getDbType();
             
+            if (dbType != null) {
+                return SQLUtils.toSQLString(this, dbType);
+            }
+        }
+
+        if (parent instanceof OracleSQLObject) {
+            return SQLUtils.toSQLString(this, JdbcConstants.ORACLE);
+        }
+
+        if (query instanceof SQLSelectQueryBlock) {
+            String dbType = ((SQLSelectQueryBlock) query).dbType;
+
             if (dbType != null) {
                 return SQLUtils.toSQLString(this, dbType);
             }
@@ -170,9 +247,7 @@ public class SQLSelect extends SQLObjectImpl {
         }
 
         if (this.hints != null) {
-            for (SQLHint hint : this.hints) {
-                x.hints.add(hint);
-            }
+            x.hints.addAll(this.hints);
         }
 
         x.forBrowse = forBrowse;
@@ -285,5 +360,38 @@ public class SQLSelect extends SQLObjectImpl {
         }
 
         return null;
+    }
+
+    public boolean addWhere(SQLExpr where) {
+        if (where == null) {
+            return false;
+        }
+
+        if (query instanceof SQLSelectQueryBlock) {
+            ((SQLSelectQueryBlock) query).addWhere(where);
+            return true;
+        }
+
+        if (query instanceof SQLUnionQuery) {
+            SQLSelectQueryBlock queryBlock = new SQLSelectQueryBlock();
+            queryBlock.setFrom(new SQLSelect(query), "u");
+            queryBlock.addSelectItem(new SQLAllColumnExpr());
+            queryBlock.setParent(queryBlock);
+            query = queryBlock;
+            return true;
+        }
+
+        return false;
+    }
+
+    public SQLLimit getLimit() {
+        return limit;
+    }
+
+    public void setLimit(SQLLimit x) {
+        if (x != null) {
+            x.setParent(this);
+        }
+        this.limit = x;
     }
 }

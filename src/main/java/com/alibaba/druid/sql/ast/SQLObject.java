@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ public interface SQLObject {
     void                setParent(SQLObject parent);
 
     Map<String, Object> getAttributes();
+    boolean             containsAttribute(String name);
     Object              getAttribute(String name);
     void                putAttribute(String name, Object value);
     Map<String, Object> getAttributesDirect();

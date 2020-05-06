@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import com.alibaba.druid.sql.ast.SQLPartitionByRange;
 import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.expr.SQLNumericLiteralExpr;
 import com.alibaba.druid.sql.ast.statement.SQLCreateTableStatement;
+import com.alibaba.druid.sql.ast.statement.SQLExternalRecordFormat;
 import com.alibaba.druid.sql.ast.statement.SQLSelect;
 import com.alibaba.druid.sql.dialect.oracle.ast.clause.OracleLobStorageClause;
 import com.alibaba.druid.sql.dialect.oracle.ast.clause.OracleStorageClause;
@@ -30,7 +31,10 @@ import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleCreateTableStatement;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleCreateTableStatement.DeferredSegmentCreation;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSupplementalIdKey;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSupplementalLogGrp;
-import com.alibaba.druid.sql.parser.*;
+import com.alibaba.druid.sql.parser.Lexer;
+import com.alibaba.druid.sql.parser.ParserException;
+import com.alibaba.druid.sql.parser.SQLCreateTableParser;
+import com.alibaba.druid.sql.parser.Token;
 
 public class OracleCreateTableParser extends SQLCreateTableParser {
 
@@ -202,7 +206,7 @@ public class OracleCreateTableParser extends SQLCreateTableParser {
                     stmt.setPartitioning(partitionByHash);
                     continue;
                 } else if (lexer.identifierEquals("LIST")) {
-                    SQLPartitionByList partitionByList = partitionByList();
+                    SQLPartitionByList partitionByList = this.getExprParser().partitionByList();
                     this.getExprParser().partitionClauseRest(partitionByList);
                     stmt.setPartitioning(partitionByList);
                     continue;
@@ -266,7 +270,7 @@ public class OracleCreateTableParser extends SQLCreateTableParser {
                 if (lexer.token() == Token.LPAREN) {
                     lexer.nextToken();
 
-                    OracleCreateTableStatement.OracleExternalRecordFormat recordFormat = new OracleCreateTableStatement.OracleExternalRecordFormat();
+                    SQLExternalRecordFormat recordFormat = new SQLExternalRecordFormat();
 
                     if (lexer.identifierEquals("RECORDS")) {
                         lexer.nextToken();
@@ -326,19 +330,6 @@ public class OracleCreateTableParser extends SQLCreateTableParser {
             throw new ParserException("TODO " + lexer.info());
         }
         stmt.setOrganization(organization);
-    }
-
-    protected SQLPartitionByList partitionByList() {
-        acceptIdentifier("LIST");
-        SQLPartitionByList partitionByList = new SQLPartitionByList();
-
-        accept(Token.LPAREN);
-        partitionByList.addColumn(this.exprParser.expr());
-        accept(Token.RPAREN);
-
-        this.getExprParser().parsePartitionByRest(partitionByList);
-
-        return partitionByList;
     }
 
     protected void parseCreateTableSupplementalLogingProps(SQLCreateTableStatement stmt) {

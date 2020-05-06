@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ public class MySqlSelectTest_55 extends MysqlTest {
         
         {
             String output = SQLUtils.toMySqlString(stmt);
-            assertEquals("SELECT COUNT(0)\n" +
+            assertEquals("SELECT count(0)\n" +
                             "FROM tb_user\n" +
                             "WHERE (login_name LIKE '%j%'\n" +
                             "\t\tAND v_sort BETWEEN 1 AND 10)\n" +
@@ -77,7 +77,7 @@ public class MySqlSelectTest_55 extends MysqlTest {
 
         {
             String output = SQLUtils.toMySqlString(stmt, new SQLUtils.FormatOption(true, true, true));
-            assertEquals("SELECT COUNT(0)\n" +
+            assertEquals("SELECT count(0)\n" +
                             "FROM tb_user\n" +
                             "WHERE (login_name LIKE ?\n" +
                             "\t\tAND v_sort BETWEEN ? AND ?)\n" +

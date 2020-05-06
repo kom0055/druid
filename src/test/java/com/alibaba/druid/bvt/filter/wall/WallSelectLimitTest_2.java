@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,6 +78,15 @@ public class WallSelectLimitTest_2 extends TestCase {
         WallProvider provider = new OracleWallProvider(config);
         WallCheckResult checkResult = provider.check(sql);
         String resultSql = checkResult.getSql();
+        System.out.println(resultSql);
+        assertEquals("SELECT *\n" +
+                "FROM t\n" +
+                "WHERE ROWNUM <= 10", resultSql);
+
+        sql = PagerUtils.limit("select * from t", JdbcConstants.OCEANBASE_ORACLE, 0, 10);
+        provider = new OracleWallProvider(config);
+        checkResult = provider.check(sql);
+        resultSql = checkResult.getSql();
         System.out.println(resultSql);
         assertEquals("SELECT *\n" +
                 "FROM t\n" +

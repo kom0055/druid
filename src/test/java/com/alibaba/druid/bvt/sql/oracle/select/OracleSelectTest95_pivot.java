@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ public class OracleSelectTest95_pivot extends OracleTest {
             assertEquals("SELECT *\n" +
                     "FROM s\n" +
                     "\tJOIN d USING (c)\n" +
-                    "PIVOT (MAX(c_c_p) AS max_ccp, MAX(d_c_p) AS max_dcp, MAX(d_x_p) AS dxp, COUNT(1) AS cnt FOR (i, p) IN ((1, 1) AS one_one, (1, 2) AS one_two, (1, 3) AS one_three, (2, 1) AS two_one, (2, 2) AS two_two, (2, 3) AS two_three))\n" +
+                    "PIVOT (max(c_c_p) AS max_ccp, max(d_c_p) AS max_dcp, max(d_x_p) AS dxp, count(1) AS cnt FOR (i, p) IN ((1, 1) AS one_one, (1, 2) AS one_two, (1, 3) AS one_three, (2, 1) AS two_one, (2, 2) AS two_two, (2, 3) AS two_three))\n" +
                     "WHERE d_t = 'p'", text);
         }
 
@@ -78,7 +78,7 @@ public class OracleSelectTest95_pivot extends OracleTest {
         System.out.println("orderBy : " + visitor.getOrderByColumns());
 
         assertEquals(2, visitor.getTables().size());
-        assertEquals(3, visitor.getColumns().size());
+        assertEquals(5, visitor.getColumns().size());
         assertEquals(3, visitor.getConditions().size());
         assertEquals(1, visitor.getRelationships().size());
         assertEquals(0, visitor.getOrderByColumns().size());

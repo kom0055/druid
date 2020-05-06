@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,6 +71,10 @@ public abstract class SQLSubPartitionBy extends SQLObjectImpl {
             p2.setParent(x);
             x.subPartitionTemplate.add(p2);
         }
+    }
+
+    public boolean isPartitionByColumn(long columnNameHashCode64) {
+        return false;
     }
 
     public abstract SQLSubPartitionBy clone();

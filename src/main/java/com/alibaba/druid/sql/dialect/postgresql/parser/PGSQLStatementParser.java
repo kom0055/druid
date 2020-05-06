@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,27 +15,44 @@
  */
 package com.alibaba.druid.sql.dialect.postgresql.parser;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.alibaba.druid.sql.ast.SQLExpr;
 import com.alibaba.druid.sql.ast.SQLName;
 import com.alibaba.druid.sql.ast.SQLStatement;
-import com.alibaba.druid.sql.ast.expr.*;
-import com.alibaba.druid.sql.ast.statement.*;
+import com.alibaba.druid.sql.ast.expr.SQLCharExpr;
+import com.alibaba.druid.sql.ast.expr.SQLCurrentOfCursorExpr;
+import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
+import com.alibaba.druid.sql.ast.expr.SQLListExpr;
+import com.alibaba.druid.sql.ast.expr.SQLQueryExpr;
+import com.alibaba.druid.sql.ast.statement.SQLAlterTableAlterColumn;
+import com.alibaba.druid.sql.ast.statement.SQLColumnDefinition;
+import com.alibaba.druid.sql.ast.statement.SQLCommitStatement;
+import com.alibaba.druid.sql.ast.statement.SQLCreateIndexStatement;
+import com.alibaba.druid.sql.ast.statement.SQLCreateSequenceStatement;
+import com.alibaba.druid.sql.ast.statement.SQLInsertStatement;
+import com.alibaba.druid.sql.ast.statement.SQLSelect;
+import com.alibaba.druid.sql.ast.statement.SQLSelectOrderByItem;
+import com.alibaba.druid.sql.ast.statement.SQLSetStatement;
+import com.alibaba.druid.sql.ast.statement.SQLTableSource;
+import com.alibaba.druid.sql.ast.statement.SQLUpdateSetItem;
+import com.alibaba.druid.sql.ast.statement.SQLUpdateStatement;
+import com.alibaba.druid.sql.ast.statement.SQLWithSubqueryClause;
+import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGConnectToStatement;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGDeleteStatement;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGInsertStatement;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectStatement;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGShowStatement;
+import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGStartTransactionStatement;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGUpdateStatement;
-import com.alibaba.druid.sql.parser.*;
-import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.*;
 import com.alibaba.druid.sql.parser.Lexer;
 import com.alibaba.druid.sql.parser.ParserException;
+import com.alibaba.druid.sql.parser.SQLParserFeature;
+import com.alibaba.druid.sql.parser.SQLSelectParser;
 import com.alibaba.druid.sql.parser.SQLStatementParser;
 import com.alibaba.druid.sql.parser.Token;
 import com.alibaba.druid.util.FnvHash;
-import com.alibaba.druid.util.JdbcConstants;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class PGSQLStatementParser extends SQLStatementParser {
     public static final String TIME_ZONE = "TIME ZONE";
@@ -110,7 +127,11 @@ public class PGSQLStatementParser extends SQLStatementParser {
             SQLName tableName = this.exprParser.name();
             stmt.setTableName(tableName);
 
-            if (lexer.token() == Token.IDENTIFIER) {
+            if (lexer.token() == Token.AS) {
+                lexer.nextToken();
+                stmt.setAlias(lexer.stringVal());
+                lexer.nextToken();
+            } else if (lexer.token() == Token.IDENTIFIER) {
                 stmt.setAlias(lexer.stringVal());
                 lexer.nextToken();
             }
@@ -150,9 +171,70 @@ public class PGSQLStatementParser extends SQLStatementParser {
             stmt.setQuery(queryExpr.getSubQuery());
         }
 
+        if (lexer.token() == Token.ON) {
+            lexer.nextToken();
+            if (lexer.identifierEquals(FnvHash.Constants.CONFLICT)) {
+                lexer.nextToken();
+
+                if (lexer.token() == Token.LPAREN) {
+                    lexer.nextToken();
+                    List<SQLExpr> onConflictTarget = new ArrayList<SQLExpr>();
+                    this.exprParser.exprList(onConflictTarget, stmt);
+                    stmt.setOnConflictTarget(onConflictTarget);
+                    accept(Token.RPAREN);
+                }
+
+                if (lexer.token() == Token.ON) {
+                    lexer.nextToken();
+                    accept(Token.CONSTRAINT);
+                    SQLName constraintName = this.exprParser.name();
+                    stmt.setOnConflictConstraint(constraintName);
+                }
+
+                if (lexer.token() == Token.WHERE) {
+                    lexer.nextToken();
+                    SQLExpr where = this.exprParser.expr();
+                    stmt.setOnConflictWhere(where);
+                }
+
+                if (lexer.token() == Token.DO) {
+                    lexer.nextToken();
+
+                    if (lexer.identifierEquals(FnvHash.Constants.NOTHING)) {
+                        lexer.nextToken();
+                        stmt.setOnConflictDoNothing(true);
+                    } else {
+                        accept(Token.UPDATE);
+                        accept(Token.SET);
+
+                        for (;;) {
+                            SQLUpdateSetItem item = this.exprParser.parseUpdateSetItem();
+                            stmt.addConflicUpdateItem(item);
+
+                            if (lexer.token() != Token.COMMA) {
+                                break;
+                            }
+
+                            lexer.nextToken();
+                        }
+                    }
+                }
+            }
+        }
+
         if (lexer.token() == Token.RETURNING) {
             lexer.nextToken();
             SQLExpr returning = this.exprParser.expr();
+
+            if (lexer.token() == Token.COMMA) {
+                lexer.nextToken();
+                SQLListExpr list = new SQLListExpr();
+                list.addItem(returning);
+
+                this.exprParser.exprList(list.getItems(), list);
+
+                returning = list;
+            }
             stmt.setReturning(returning);
         }
         return stmt;
@@ -215,20 +297,50 @@ public class PGSQLStatementParser extends SQLStatementParser {
 
     public boolean parseStatementListDialect(List<SQLStatement> statementList) {
         switch (lexer.token()) {
-        case START: {
+            case BEGIN:
+            case START: {
+                PGStartTransactionStatement stmt = parseBegin();
+                statementList.add(stmt);
+                return true;
+            }
+
+            case WITH:
+                statementList.add(parseWith());
+                return true;
+            default:
+                break;
+        }
+
+        if (lexer.identifierEquals(FnvHash.Constants.CONNECT)) {
+            SQLStatement stmt = parseConnectTo();
+            statementList.add(stmt);
+            return true;
+        }
+
+        return false;
+    }
+
+    protected PGStartTransactionStatement parseBegin() {
+        PGStartTransactionStatement stmt = new PGStartTransactionStatement();
+        if (lexer.token() == Token.START) {
             lexer.nextToken();
             acceptIdentifier("TRANSACTION");
-            PGStartTransactionStatement stmt = new PGStartTransactionStatement();
-            statementList.add(stmt);
-            lexer.nextToken();
-            return true;
+        } else {
+            accept(Token.BEGIN);
         }
-        case WITH:
-            statementList.add(parseWith());
-            return true;
-        default:
-            return false;
-        }
+
+        return stmt;
+    }
+
+    public SQLStatement parseConnectTo() {
+        acceptIdentifier("CONNECT");
+        accept(Token.TO);
+
+        PGConnectToStatement stmt = new PGConnectToStatement();
+        SQLName target = this.exprParser.name();
+        stmt.setTarget(target);
+
+        return stmt;
     }
 
     public PGSelectStatement parseSelect() {
@@ -343,10 +455,12 @@ public class PGSQLStatementParser extends SQLStatementParser {
             option = SQLSetStatement.Option.LOCAL;
             lexer.nextToken();
         }
+
+        long hash = lexer.hash_lower();
         String parameter = lexer.stringVal();
         SQLExpr paramExpr;
         List<SQLExpr> values = new ArrayList<SQLExpr>();
-        if (TIME.equalsIgnoreCase(parameter)) {
+        if (hash == FnvHash.Constants.TIME) {
             lexer.nextToken();
             acceptIdentifier("ZONE");
             paramExpr = new SQLIdentifierExpr("TIME ZONE");
@@ -358,6 +472,11 @@ public class PGSQLStatementParser extends SQLStatementParser {
             }
             lexer.nextToken();
 //            return new PGSetStatement(range, TIME_ZONE, exprs);
+        } else if (hash == FnvHash.Constants.ROLE) {
+            paramExpr = new SQLIdentifierExpr(parameter);
+            lexer.nextToken();
+            values.add(this.exprParser.primary());
+            lexer.nextToken();
         } else {
             paramExpr = new SQLIdentifierExpr(parameter);
             lexer.nextToken();
@@ -468,4 +587,57 @@ public class PGSQLStatementParser extends SQLStatementParser {
         return stmt;
     }
 
+    public SQLStatement parseCreateIndex(boolean acceptCreate) {
+        if (acceptCreate) {
+            accept(Token.CREATE);
+        }
+
+        SQLCreateIndexStatement stmt = new SQLCreateIndexStatement(getDbType());
+        if (lexer.token() == Token.UNIQUE) {
+            lexer.nextToken();
+            if (lexer.identifierEquals("CLUSTERED")) {
+                lexer.nextToken();
+                stmt.setType("UNIQUE CLUSTERED");
+            } else {
+                stmt.setType("UNIQUE");
+            }
+        } else if (lexer.identifierEquals("FULLTEXT")) {
+            stmt.setType("FULLTEXT");
+            lexer.nextToken();
+        } else if (lexer.identifierEquals("NONCLUSTERED")) {
+            stmt.setType("NONCLUSTERED");
+            lexer.nextToken();
+        }
+
+        accept(Token.INDEX);
+
+        stmt.setName(this.exprParser.name());
+
+        accept(Token.ON);
+
+        stmt.setTable(this.exprParser.name());
+
+        if (lexer.token() == Token.USING) {
+            lexer.nextToken();
+            String using = lexer.stringVal();
+            accept(Token.IDENTIFIER);
+            stmt.setUsing(using);
+        }
+
+        accept(Token.LPAREN);
+
+        for (;;) {
+            SQLSelectOrderByItem item = this.exprParser.parseSelectOrderByItem();
+            item.setParent(stmt);
+            stmt.addItem(item);
+            if (lexer.token() == Token.COMMA) {
+                lexer.nextToken();
+                continue;
+            }
+            break;
+        }
+        accept(Token.RPAREN);
+
+        return stmt;
+    }
 }

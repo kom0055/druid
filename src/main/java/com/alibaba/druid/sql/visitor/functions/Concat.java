@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ public class Concat implements Function {
         for (SQLExpr item : x.getParameters()) {
             item.accept(visitor);
 
-            Object itemValue = item.getAttributes().get(EVAL_VALUE);
+            Object itemValue = item.getAttribute(EVAL_VALUE);
             if (itemValue == null) {
                 return null;
             }

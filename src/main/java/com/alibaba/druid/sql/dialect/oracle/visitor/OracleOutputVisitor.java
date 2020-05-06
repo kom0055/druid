@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,49 @@ package com.alibaba.druid.sql.dialect.oracle.visitor;
 
 import java.util.List;
 
-import com.alibaba.druid.sql.ast.*;
-import com.alibaba.druid.sql.ast.expr.*;
-import com.alibaba.druid.sql.ast.statement.*;
+import com.alibaba.druid.sql.ast.SQLArgument;
+import com.alibaba.druid.sql.ast.SQLDataType;
+import com.alibaba.druid.sql.ast.SQLExpr;
+import com.alibaba.druid.sql.ast.SQLHint;
+import com.alibaba.druid.sql.ast.SQLName;
+import com.alibaba.druid.sql.ast.SQLObject;
+import com.alibaba.druid.sql.ast.SQLOrderBy;
+import com.alibaba.druid.sql.ast.SQLParameter;
+import com.alibaba.druid.sql.ast.SQLPartitionBy;
+import com.alibaba.druid.sql.ast.SQLSetQuantifier;
+import com.alibaba.druid.sql.ast.SQLStatement;
+import com.alibaba.druid.sql.ast.expr.SQLBetweenExpr;
+import com.alibaba.druid.sql.ast.expr.SQLCharExpr;
+import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
+import com.alibaba.druid.sql.ast.expr.SQLLiteralExpr;
+import com.alibaba.druid.sql.ast.expr.SQLMethodInvokeExpr;
+import com.alibaba.druid.sql.ast.expr.SQLVariantRefExpr;
+import com.alibaba.druid.sql.ast.statement.SQLAlterProcedureStatement;
+import com.alibaba.druid.sql.ast.statement.SQLAlterTableItem;
+import com.alibaba.druid.sql.ast.statement.SQLAlterTableRename;
+import com.alibaba.druid.sql.ast.statement.SQLAlterTableStatement;
+import com.alibaba.druid.sql.ast.statement.SQLAssignItem;
+import com.alibaba.druid.sql.ast.statement.SQLBlockStatement;
+import com.alibaba.druid.sql.ast.statement.SQLCharacterDataType;
+import com.alibaba.druid.sql.ast.statement.SQLCheck;
+import com.alibaba.druid.sql.ast.statement.SQLColumnDefinition;
+import com.alibaba.druid.sql.ast.statement.SQLCreateFunctionStatement;
+import com.alibaba.druid.sql.ast.statement.SQLForeignKeyImpl;
+import com.alibaba.druid.sql.ast.statement.SQLIfStatement;
+import com.alibaba.druid.sql.ast.statement.SQLInsertStatement;
+import com.alibaba.druid.sql.ast.statement.SQLJoinTableSource;
 import com.alibaba.druid.sql.ast.statement.SQLJoinTableSource.JoinType;
+import com.alibaba.druid.sql.ast.statement.SQLRollbackStatement;
+import com.alibaba.druid.sql.ast.statement.SQLSavePointStatement;
+import com.alibaba.druid.sql.ast.statement.SQLScriptCommitStatement;
+import com.alibaba.druid.sql.ast.statement.SQLSelect;
+import com.alibaba.druid.sql.ast.statement.SQLSelectOrderByItem;
+import com.alibaba.druid.sql.ast.statement.SQLSelectQuery;
+import com.alibaba.druid.sql.ast.statement.SQLSelectQueryBlock;
+import com.alibaba.druid.sql.ast.statement.SQLTableSource;
+import com.alibaba.druid.sql.ast.statement.SQLTruncateStatement;
+import com.alibaba.druid.sql.ast.statement.SQLUnique;
+import com.alibaba.druid.sql.ast.statement.SQLWithSubqueryClause;
 import com.alibaba.druid.sql.dialect.oracle.ast.OracleDataTypeIntervalDay;
 import com.alibaba.druid.sql.dialect.oracle.ast.OracleDataTypeIntervalYear;
 import com.alibaba.druid.sql.dialect.oracle.ast.clause.CycleClause;
@@ -43,18 +82,87 @@ import com.alibaba.druid.sql.dialect.oracle.ast.clause.OracleWithSubqueryEntry;
 import com.alibaba.druid.sql.dialect.oracle.ast.clause.PartitionExtensionClause;
 import com.alibaba.druid.sql.dialect.oracle.ast.clause.SampleClause;
 import com.alibaba.druid.sql.dialect.oracle.ast.clause.SearchClause;
-import com.alibaba.druid.sql.dialect.oracle.ast.expr.*;
-import com.alibaba.druid.sql.dialect.oracle.ast.stmt.*;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleAnalytic;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleAnalyticWindowing;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleArgumentExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleBinaryDoubleExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleBinaryFloatExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleCursorExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleDatetimeExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleDbLinkExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleIntervalExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleIsOfTypeExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleIsSetExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleOuterExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleRangeExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleSizeExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleSysdateExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.expr.OracleTreatExpr;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterIndexStatement;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterIndexStatement.Rebuild;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterSessionStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterSynonymStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterTableDropPartition;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterTableModify;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterTableMoveTablespace;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterTableSplitPartition;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterTableSplitPartition.NestedTablePartitionSpec;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterTableSplitPartition.TableSpaceItem;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterTableSplitPartition.UpdateIndexesClause;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterTableTruncatePartition;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterTablespaceAddDataFile;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterTablespaceStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterTriggerStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleAlterViewStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleCheck;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleConstraint;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleContinueStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleCreateDatabaseDbLinkStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleCreateIndexStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleCreatePackageStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleCreateSynonymStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleCreateTableStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleCreateTypeStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleDeleteStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleDropDbLinkStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleExceptionStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleExecuteImmediateStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleExitStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleExplainStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleFileSpecification;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleForStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleForeignKey;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleGotoStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleInsertStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleLabelStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleLockTableStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleMultiInsertStatement;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleMultiInsertStatement.ConditionalInsertClause;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleMultiInsertStatement.ConditionalInsertClauseItem;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleMultiInsertStatement.InsertIntoClause;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OraclePipeRowStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OraclePrimaryKey;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleRaiseStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleRunStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectJoin;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectPivot;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectPivot.Item;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectPivotBase;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectQueryBlock;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectRestriction;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectRestriction.CheckOption;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectRestriction.ReadOnly;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectSubqueryTableSource;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectTableReference;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectUnPivot;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSetTransactionStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSupplementalIdKey;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSupplementalLogGrp;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleUnique;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleUpdateStatement;
+import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleUsingIndexClause;
+import com.alibaba.druid.sql.dialect.oracle.parser.OracleFunctionDataType;
+import com.alibaba.druid.sql.dialect.oracle.parser.OracleProcedureDataType;
 import com.alibaba.druid.sql.visitor.SQLASTOutputVisitor;
 import com.alibaba.druid.util.JdbcConstants;
 
@@ -112,6 +220,10 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
                 print(' ');
             }
             visit(windowing);
+        }
+
+        if (x.isWindowingPreceding()) {
+            print0(ucase ? " PRECEDING" : " preceding");
         }
 
         print(')');
@@ -173,7 +285,8 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
     }
 
     public boolean visit(OracleIntervalExpr x) {
-        if (x.getValue() instanceof SQLLiteralExpr) {
+        SQLExpr value = x.getValue();
+        if (value instanceof SQLLiteralExpr || value instanceof SQLVariantRefExpr) {
             print0(ucase ? "INTERVAL " : "interval ");
             x.getValue().accept(this);
             print(' ');
@@ -1292,56 +1405,6 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
     }
 
     @Override
-    public boolean visit(SQLBlockStatement x) {
-        if (x.getParameters().size() != 0) {
-            this.indentCount++;
-            if (x.getParent() instanceof SQLCreateProcedureStatement) {
-                SQLCreateProcedureStatement procedureStatement = (SQLCreateProcedureStatement) x.getParent();
-                if (procedureStatement.isCreate()) {
-                    printIndent();
-                }
-            }
-            if (!(x.getParent() instanceof SQLCreateProcedureStatement
-                    || x.getParent() instanceof SQLCreateFunctionStatement)
-                    ) {
-                print0(ucase ? "DECLARE" : "declare");
-                println();
-            }
-
-            for (int i = 0, size = x.getParameters().size(); i < size; ++i) {
-                if (i != 0) {
-                    println();
-                }
-                SQLParameter param = x.getParameters().get(i);
-                param.accept(this);
-                print(';');
-            }
-
-            this.indentCount--;
-            println();
-        }
-        print0(ucase ? "BEGIN" : "begin");
-        this.indentCount++;
-
-        for (int i = 0, size = x.getStatementList().size(); i < size; ++i) {
-            println();
-            SQLStatement stmt = x.getStatementList().get(i);
-            stmt.accept(this);
-        }
-        this.indentCount--;
-
-        SQLStatement exception = x.getException();
-        if (exception != null) {
-            println();
-            exception.accept(this);
-        }
-
-        println();
-        print0(ucase ? "END;" : "end;");
-        return false;
-    }
-
-    @Override
     public void endVisit(SQLBlockStatement x) {
 
     }
@@ -1522,7 +1585,7 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             println();
         }
 
-        print0(ucase ? "FRO" : "fro");
+        print0(ucase ? "FOR" : "for");
         println();
         x.getStatement().accept(this);
 
@@ -1790,6 +1853,7 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             for (SQLPartitionBy globalPartition : globalPartitions) {
                 println();
                 print0(ucase ? "GLOBAL " : "global ");
+                print0(ucase ? "PARTITION BY " : "partition by ");
                 globalPartition.accept(this);
             }
 
@@ -2140,9 +2204,11 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             print0(ucase ? "MONITORING" : "monitoring");
         }
 
-        if (x.getPartitioning() != null) {
+        SQLPartitionBy partitionBy = x.getPartitioning();
+        if (partitionBy != null) {
             println();
-            x.getPartitioning().accept(this);
+            print0(ucase ? "PARTITION BY " : "partition by ");
+            partitionBy.accept(this);
         }
 
         if (x.getCluster() != null) {
@@ -2530,84 +2596,7 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
         return false;
     }
 
-    @Override
-    public boolean visit(SQLCreateProcedureStatement x) {
-        boolean create = x.isCreate();
-        if (!create) {
-            print0(ucase ? "PROCEDURE " : "procedure ");
-        } else if (x.isOrReplace()) {
-            print0(ucase ? "CREATE OR REPLACE PROCEDURE " : "create or replace procedure ");
-        } else {
-            print0(ucase ? "CREATE PROCEDURE " : "create procedure ");
-        }
-        x.getName().accept(this);
 
-        int paramSize = x.getParameters().size();
-
-        if (paramSize > 0) {
-            print0(" (");
-            this.indentCount++;
-            println();
-
-            for (int i = 0; i < paramSize; ++i) {
-                if (i != 0) {
-                    print0(", ");
-                    println();
-                }
-                SQLParameter param = x.getParameters().get(i);
-                param.accept(this);
-            }
-
-            this.indentCount--;
-            println();
-            print(')');
-        }
-
-        SQLName authid = x.getAuthid();
-        if (authid != null) {
-            print(ucase ? " AUTHID " : " authid ");
-            authid.accept(this);
-        }
-
-        SQLStatement block = x.getBlock();
-
-        if (block != null && !create) {
-            println();
-            print("IS");
-            println();
-        } else {
-            println();
-            if (block instanceof SQLBlockStatement) {
-                SQLBlockStatement blockStatement = (SQLBlockStatement) block;
-                if (blockStatement.getParameters().size() > 0 || authid != null) {
-                    println(ucase ? "AS" : "as");
-                }
-            }
-        }
-
-        String javaCallSpec = x.getJavaCallSpec();
-        if (javaCallSpec != null) {
-            print0(ucase ? "LANGUAGE JAVA NAME '" : "language java name '");
-            print0(javaCallSpec);
-            print('\'');
-            return false;
-        }
-
-        boolean afterSemi = false;
-        if (block != null) {
-            block.accept(this);
-
-            if (block instanceof SQLBlockStatement
-                    && ((SQLBlockStatement) block).getStatementList().size() > 0) {
-                afterSemi = ((SQLBlockStatement) block).getStatementList().get(0).isAfterSemi();
-            }
-        }
-
-        if ((!afterSemi) && x.getParent() instanceof OracleCreatePackageStatement) {
-            print(';');
-        }
-        return false;
-    }
 
     @Override
     public boolean visit(SQLCreateFunctionStatement x) {
@@ -2640,6 +2629,17 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             this.indentCount--;
             println();
             print(')');
+        }
+
+        String wrappedSource = x.getWrappedSource();
+        if (wrappedSource != null) {
+            print0(ucase ? " WRAPPED " : " wrapped ");
+            print0(wrappedSource);
+
+            if (x.isAfterSemi()) {
+                print(';');
+            }
+            return false;
         }
 
         println();
@@ -2703,11 +2703,6 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             block.accept(this);
         }
         return false;
-    }
-
-    @Override
-    public void endVisit(SQLCreateProcedureStatement x) {
-
     }
 
     @Override
@@ -3037,7 +3032,7 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             if (count != 0) {
                 print0(", ");
             }
-            print0(ucase ? "FOREIGHN KEY" : "foreighn key");
+            print0(ucase ? "FOREIGN KEY" : "foreign key");
             count++;
         }
 
@@ -3131,26 +3126,6 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
     }
 
     public void endVisit(OracleCreateTableStatement.Organization x) {
-
-    }
-
-    public boolean visit(OracleCreateTableStatement.OracleExternalRecordFormat x) {
-        if (x.getDelimitedBy() != null) {
-            println();
-            print0(ucase ? "RECORDS DELIMITED BY " : "records delimited by ");
-            x.getDelimitedBy().accept(this);
-        }
-
-        if (x.getTerminatedBy() != null) {
-            println();
-            print0(ucase ? "FIELDS TERMINATED BY " : "fields terminated by ");
-            x.getTerminatedBy().accept(this);
-        }
-
-        return false;
-    }
-
-    public void endVisit(OracleCreateTableStatement.OracleExternalRecordFormat x) {
 
     }
 
@@ -3311,20 +3286,107 @@ public class OracleOutputVisitor extends SQLASTOutputVisitor implements OracleAS
             print0(ucase ? "CREATE TYPE " : "create type ");
         }
 
+        if (x.isBody()) {
+            print0(ucase ? "BODY " : "body ");
+        }
+
         x.getName().accept(this);
+
+        SQLName under = x.getUnder();
+        if (under != null) {
+            print0(ucase ? " UNDER " : " under ");
+            under.accept(this);
+        }
+
+        SQLName authId = x.getAuthId();
+        if (authId != null) {
+            print0(ucase ? " AUTHID " : " authid ");
+            authId.accept(this);
+        }
 
         if (x.isForce()) {
             print0(ucase ? "FORCE " : "force ");
         }
 
-        print0(" AS OBJECT (");
-        indentCount++;
-        println();
-        printlnAndAccept(x.getParameters(), ", ");
+        List<SQLParameter> parameters = x.getParameters();
+        SQLDataType tableOf = x.getTableOf();
 
-        indentCount--;
-        println();
-        print0(")");
+        if (x.isObject()) {
+            print0(" AS OBJECT");
+        }
+
+        if (parameters.size() > 0) {
+            if (x.isParen()) {
+                print(" (");
+            } else {
+                print0(ucase ? " IS" : " is");
+            }
+            indentCount++;
+            println();
+
+            for (int i = 0; i < parameters.size(); ++i) {
+                SQLParameter param = parameters.get(i);
+                param.accept(this);
+
+                SQLDataType dataType = param.getDataType();
+
+                if (i < parameters.size() - 1) {
+                    if (dataType instanceof OracleFunctionDataType
+                            && ((OracleFunctionDataType) dataType).getBlock() != null) {
+                        // skip
+                        println();
+                    } else  if (dataType instanceof OracleProcedureDataType
+                            && ((OracleProcedureDataType) dataType).getBlock() != null) {
+                        // skip
+                        println();
+                    } else {
+                        println(", ");
+                    }
+                }
+            }
+
+            indentCount--;
+            println();
+
+            if (x.isParen()) {
+                print0(")");
+            } else {
+                print0("END");
+            }
+        } else if (tableOf != null) {
+            print0(ucase ? " AS TABLE OF " : " as table of ");
+            tableOf.accept(this);
+        } else if (x.getVarraySizeLimit() != null) {
+            print0(ucase ? " VARRAY (" : " varray (");
+            x.getVarraySizeLimit().accept(this);
+            print0(ucase ? ") OF " : ") of ");
+            x.getVarrayDataType().accept(this);
+        }
+
+        Boolean isFinal = x.getFinal();
+        if (isFinal != null) {
+            if (isFinal.booleanValue()) {
+                print0(ucase ? " FINAL" : " final");
+            } else {
+                print0(ucase ? " NOT FINAL" : " not final");
+            }
+        }
+
+        Boolean instantiable = x.getInstantiable();
+        if (instantiable != null) {
+            if (instantiable.booleanValue()) {
+                print0(ucase ? " INSTANTIABLE" : " instantiable");
+            } else {
+                print0(ucase ? " NOT INSTANTIABLE" : " not instantiable");
+            }
+        }
+
+        String wrappedSource = x.getWrappedSource();
+        if (wrappedSource != null) {
+            print0(ucase ? " WRAPPED" : " wrapped");
+            print0(wrappedSource);
+        }
+
         return false;
     }
 

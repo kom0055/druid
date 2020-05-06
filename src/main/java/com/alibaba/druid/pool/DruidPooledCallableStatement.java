@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1068,11 +1068,11 @@ public class DruidPooledCallableStatement extends DruidPooledPreparedStatement i
     }
 
     public <T> T getObject(int parameterIndex, Class<T> type) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        return stmt.getObject(parameterIndex, type);
     }
 
     public <T> T getObject(String parameterName, Class<T> type) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        return stmt.getObject(parameterName, type);
     }
 
     @SuppressWarnings("unchecked")

@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 package com.alibaba.druid.sql.dialect.sqlserver.visitor;
-
-import java.util.Map;
 
 import com.alibaba.druid.sql.ast.statement.SQLInsertStatement;
 import com.alibaba.druid.sql.ast.statement.SQLSelectQueryBlock;
@@ -33,7 +31,6 @@ import com.alibaba.druid.sql.dialect.sqlserver.ast.stmt.SQLServerWaitForStatemen
 import com.alibaba.druid.sql.visitor.SchemaStatVisitor;
 import com.alibaba.druid.stat.TableStat;
 import com.alibaba.druid.util.JdbcConstants;
-import com.alibaba.druid.util.JdbcUtils;
 
 public class SQLServerSchemaStatVisitor extends SchemaStatVisitor implements SQLServerASTVisitor {
     public SQLServerSchemaStatVisitor() {

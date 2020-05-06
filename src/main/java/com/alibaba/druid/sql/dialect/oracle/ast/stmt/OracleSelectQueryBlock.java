@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,9 @@
  */
 package com.alibaba.druid.sql.dialect.oracle.ast.stmt;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLCommentHint;
 import com.alibaba.druid.sql.ast.SQLExpr;
-import com.alibaba.druid.sql.ast.SQLLimit;
 import com.alibaba.druid.sql.ast.expr.SQLBinaryOperator;
 import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.expr.SQLIntegerExpr;
@@ -35,11 +31,7 @@ import com.alibaba.druid.util.JdbcConstants;
 
 public class OracleSelectQueryBlock extends SQLSelectQueryBlock implements OracleSQLObject {
 
-    private List<SQLCommentHint>       hints;
-
     private ModelClause                modelClause;
-
-
     private boolean                    skipLocked  = false;
 
     public OracleSelectQueryBlock clone() {
@@ -82,21 +74,6 @@ public class OracleSelectQueryBlock extends SQLSelectQueryBlock implements Oracl
 
     public void setModelClause(ModelClause modelClause) {
         this.modelClause = modelClause;
-    }
-
-    public List<SQLCommentHint> getHints() {
-        if (hints == null) {
-            hints = new ArrayList<SQLCommentHint>(1);
-        }
-        return this.hints;
-    }
-
-    public int getHintsSize() {
-        if (hints == null) {
-            return 0;
-        }
-
-        return hints.size();
     }
 
     public boolean isSkipLocked() {

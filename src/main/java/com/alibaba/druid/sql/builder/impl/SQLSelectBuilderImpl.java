@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import com.alibaba.druid.sql.ast.SQLOrderBy;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.ast.expr.SQLBinaryOperator;
 import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
-import com.alibaba.druid.sql.ast.expr.SQLIntegerExpr;
 import com.alibaba.druid.sql.ast.statement.SQLExprTableSource;
 import com.alibaba.druid.sql.ast.statement.SQLSelect;
 import com.alibaba.druid.sql.ast.statement.SQLSelectGroupByClause;
@@ -33,15 +32,12 @@ import com.alibaba.druid.sql.ast.statement.SQLSelectQuery;
 import com.alibaba.druid.sql.ast.statement.SQLSelectQueryBlock;
 import com.alibaba.druid.sql.ast.statement.SQLSelectStatement;
 import com.alibaba.druid.sql.builder.SQLSelectBuilder;
-import com.alibaba.druid.sql.dialect.db2.ast.stmt.DB2SelectQueryBlock;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlSelectQueryBlock;
-import com.alibaba.druid.sql.ast.SQLLimit;
-import com.alibaba.druid.sql.dialect.odps.ast.OdpsSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.oracle.ast.stmt.OracleSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.postgresql.ast.stmt.PGSelectQueryBlock;
 import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerSelectQueryBlock;
-import com.alibaba.druid.sql.dialect.sqlserver.ast.SQLServerTop;
 import com.alibaba.druid.util.JdbcConstants;
+import com.alibaba.druid.util.JdbcUtils;
 
 public class SQLSelectBuilderImpl implements SQLSelectBuilder {
 
@@ -85,6 +81,7 @@ public class SQLSelectBuilderImpl implements SQLSelectBuilder {
         return stmt;
     }
 
+    @Override
     public SQLSelectBuilderImpl select(String... columns) {
         SQLSelectQueryBlock queryBlock = getQueryBlock();
 
@@ -244,19 +241,19 @@ public class SQLSelectBuilderImpl implements SQLSelectBuilder {
     }
 
     protected SQLSelectQuery createSelectQueryBlock() {
-        if (JdbcConstants.MYSQL.equals(dbType)) {
+        if (JdbcUtils.isMysqlDbType(dbType)) {
             return new MySqlSelectQueryBlock();
         }
 
-        if (JdbcConstants.POSTGRESQL.equals(dbType)) {
+        if (JdbcUtils.isPgsqlDbType(dbType)) {
             return new PGSelectQueryBlock();
         }
 
-        if (JdbcConstants.SQL_SERVER.equals(dbType)) {
+        if (JdbcUtils.isSqlserverDbType(dbType)) {
             return new SQLServerSelectQueryBlock();
         }
 
-        if (JdbcConstants.ORACLE.equals(dbType)) {
+        if (JdbcUtils.isOracleDbType(dbType)) {
             return new OracleSelectQueryBlock();
         }
 
@@ -271,6 +268,7 @@ public class SQLSelectBuilderImpl implements SQLSelectBuilder {
         return new SQLSelectGroupByClause();
     }
 
+    @Override
     public String toString() {
         return SQLUtils.toSQLString(stmt, dbType);
     }

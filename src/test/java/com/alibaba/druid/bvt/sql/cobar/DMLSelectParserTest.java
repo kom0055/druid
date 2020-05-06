@@ -1,5 +1,5 @@
 /*
- * Copyright 1999-2017 Alibaba Group Holding Ltd.
+ * Copyright 1999-2018 Alibaba Group Holding Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,8 @@ public class DMLSelectParserTest extends TestCase {
                 "UNION ALL\n" +
                 "(SELECT id\n" +
                 "FROM t3)\n" +
-                "ORDER BY d DESC", output);
+                "ORDER BY d DESC\n" +
+                "LIMIT ?, 1", output);
     }
 
     public void test_union_1() throws Exception {
@@ -178,7 +179,7 @@ public class DMLSelectParserTest extends TestCase {
         SQLStatement stmt = parser.parseStatementList().get(0);
         parser.match(Token.EOF);
         String output = SQLUtils.toMySqlString(stmt);
-        Assert.assertEquals("SELECT SQL_CACHE id1, MAX(id2)\nFROM tb1\nGROUP BY id1\nHAVING id1 > 10\nORDER BY id3 DESC",
+        Assert.assertEquals("SELECT SQL_CACHE id1, max(id2)\nFROM tb1\nGROUP BY id1\nHAVING id1 > 10\nORDER BY id3 DESC",
                             output);
     }
 
